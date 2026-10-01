@@ -42,7 +42,6 @@ input string  LicenseKey        = "";        // License Key (NFARM-XXXXX-XXXXX)
 //--- Auto-Update
 input group   "Auto-Update"
 input bool    EnableAutoUpdate   = true;      // Check for updates on startup
-input string  GetUpdateURL()     = UPDATE_CHECK_URL; // Version check URL
 
 //--- Pending Orders
 input group   "Pending Orders"
@@ -380,8 +379,8 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 //| DLL IMPORTS                                                      |
 //+------------------------------------------------------------------+
 #import "wininet.dll"
-long InternetOpenW(string agent, int accessType, string proxyName, string proxyBypass, int flags);
-long InternetOpenUrlW(long internetSession, string url, string headers, int headersLength, int flags, int context);
+long InternetOpenW(string agent, int accessType, string proxyName, string proxyBypass, uint flags);
+long InternetOpenUrlW(long internetSession, string url, string headers, int headersLength, uint flags, long context);
 int  InternetReadFile(long file, uchar &buffer[], int numBytesToRead, int &numberOfBytesRead);
 int  InternetCloseHandle(long inet);
 #import
@@ -1744,6 +1743,7 @@ void DeleteUI()
    ChartRedraw(0);
 }
 //+------------------------------------------------------------------+
+
 
 
 
