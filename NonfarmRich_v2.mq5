@@ -11,7 +11,7 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "2.0.0"
+#define EA_VERSION       "2.0.1"
 #define EA_BUILD         20261002
 #define UPDATE_CHECK_URL "https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/update/version.txt"
 #define UPDATE_DL_URL    "https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v2.mq5"
