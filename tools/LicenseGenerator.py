@@ -36,7 +36,7 @@ def generate_key():
     entry_result.config(state=tk.NORMAL)
     entry_result.delete(0, tk.END)
     entry_result.insert(0, license_key)
-    entry_result.config(state=tk.READONLY)
+    entry_result.config(state="readonly")
     
     # Add to Google Sheet
     try:
@@ -112,8 +112,9 @@ btn_generate.pack(fill=tk.X, pady=(20, 10))
 tk.Label(root, text="Generated License Key:").pack(anchor="w")
 frame_res = tk.Frame(root)
 frame_res.pack(fill=tk.X)
-entry_result = tk.Entry(frame_res, width=32, font=("Courier", 12, "bold"), state=tk.READONLY)
+entry_result = tk.Entry(frame_res, width=32, font=("Courier", 12, "bold"), state="readonly")
 entry_result.pack(side=tk.LEFT, ipady=3)
 tk.Button(frame_res, text="Copy", command=copy_to_clipboard).pack(side=tk.RIGHT, padx=5)
 
 root.mainloop()
+
