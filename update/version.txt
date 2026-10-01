@@ -1,4 +1,4 @@
-VERSION=2.0.1
+VERSION=2.0.2
 BUILD=20261002
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v2.mq5
 CHANGELOG=v2.0: Login System, Auto-Update, Spike Guard, Cancel Opposite Toggle, Bug Fixes (Ticket Persistence, Filling Type, TP/SL Fix, Modify Throttle, State Sync)

@@ -11,7 +11,7 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "2.0.1"
+#define EA_VERSION       "2.0.2"
 #define EA_BUILD         20261002
 #define UPDATE_CHECK_URL "https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/update/version.txt"
 #define UPDATE_DL_URL    "https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v2.mq5"
@@ -709,7 +709,7 @@ ulong SendPendingOrder(ENUM_ORDER_TYPE orderType, double lots, double price,
       Print("SendPendingOrder attempt ", attempt + 1, " failed: ", err,
             " retcode=", res.retcode);
 
-      if(err == ERR_TRADE_TIMEOUT || res.retcode == TRADE_RETCODE_REQUOTE ||
+      if(res.retcode == TRADE_RETCODE_TIMEOUT || res.retcode == TRADE_RETCODE_REQUOTE ||
          res.retcode == TRADE_RETCODE_PRICE_CHANGED)
       {
          Sleep(200 * (attempt + 1));
