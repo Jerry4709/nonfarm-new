@@ -13,8 +13,8 @@ def generate_key():
     broker = entry_broker.get().strip()
     acc = entry_acc.get().strip()
     
-    if len(serial) != 5 or not all(c in string.ascii_uppercase + string.digits for c in serial):
-        messagebox.showerror("Error", "Serial must be exactly 5 alphanumeric characters (A-Z, 0-9).\nExample: ADMIN, USER1")
+    if not (3 <= len(serial) <= 15) or not all(c in string.ascii_uppercase + string.digits for c in serial):
+        messagebox.showerror("Error", "Serial must be 3 to 15 alphanumeric characters (A-Z, 0-9).\nExample: ADMIN, USER1")
         return
         
     hash_val = 5381
@@ -82,7 +82,7 @@ frame = tk.Frame(root)
 frame.pack(fill=tk.BOTH, expand=True)
 
 # Serial
-tk.Label(frame, text="Serial (5 chars, e.g. ADMIN):").grid(row=0, column=0, sticky="w", pady=5)
+tk.Label(frame, text="Serial (3-15 chars, e.g. ADMIN):").grid(row=0, column=0, sticky="w", pady=5)
 entry_serial = tk.Entry(frame, width=25)
 entry_serial.grid(row=0, column=1, pady=5)
 entry_serial.insert(0, "ADMIN")
@@ -117,6 +117,7 @@ entry_result.pack(side=tk.LEFT, ipady=3)
 tk.Button(frame_res, text="Copy", command=copy_to_clipboard).pack(side=tk.RIGHT, padx=5)
 
 root.mainloop()
+
 
 
 
