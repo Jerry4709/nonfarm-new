@@ -1,97 +1,43 @@
-# NonfarmRich EA v2.0 — News Straddle Stop Orders
+# NonfarmRich EA v3.0
 
-Expert Advisor สำหรับ MetaTrader 5 ที่ตั้ง **Buy Stop + Sell Stop** (2 คู่) ดักจับราคาตอนข่าวออก
+**NonfarmRich EA** is a professional Expert Advisor (EA) for MetaTrader 5, specifically designed for high-volatility news trading (such as Non-Farm Payrolls, CPI, and Interest Rate decisions).
 
-## 📁 ไฟล์ในโปรเจค
+## 🚀 Key Trading Features
 
-| ไฟล์ | คำอธิบาย |
-|------|----------|
-| `NonfarmRich_v1.mq5` | เวอร์ชันดั้งเดิม (v1.0) |
-| `NonfarmRich_v2.mq5` | เวอร์ชันใหม่ (v2.0) พร้อมฟีเจอร์เพิ่มเติม |
-| `tools/NonfarmRich_KeyGenerator.mq5` | Script สร้าง License Key |
-| `update/version.txt` | ไฟล์ตรวจสอบ Auto-Update |
+* **Straddle Pending Orders (Buy Stop / Sell Stop):** Automatically places pending orders at a specified distance from the current price right before a news event.
+* **Cancel Opposite Pending:** When one pending order is triggered (e.g., Buy Stop is hit), the EA can automatically delete the opposite pending order (Sell Stop) to prevent whip-saw losses. This can be toggled on/off directly from the EA's on-chart UI.
+* **Spike Guard:** A protective mechanism that monitors price ticks just seconds before the news release. If it detects abnormal price manipulation or massive spikes (which often cause severe slippage), it will automatically pause tracking or move pending orders to a safer distance.
+* **Trailing Stop:** Automatically trails the Stop Loss behind the current price once the trade is in profit, securing gains dynamically.
+* **Lot Size Calculator:** Built-in dynamic lot sizing based on account balance and risk parameters.
 
----
+## 🔐 Licensing & Security System (v3.0)
 
-## 🆕 ฟีเจอร์ใหม่ใน v2.0
+Version 3.0 introduces a highly secure, centralized licensing system integrated with **Google Sheets**.
 
-### 🔑 License Key System
-- ใส่ License Key ใน input parameter `LicenseKey`
-- รูปแบบ: `NFARM-XXXXX-XXXXX`
-- ใช้ `tools/NonfarmRich_KeyGenerator.mq5` เพื่อสร้าง key
-- ถ้า key ไม่ถูกต้อง EA จะแสดงบนชาร์ตแต่ **ไม่เปิดเทรด**
-- ในโหมด Strategy Tester ไม่ต้องใส่ key
+* **Centralized Management:** Licenses are managed via a Google Sheet, acting as a real-time database. You can instantly see which accounts are active or revoke licenses.
+* **Auto-Binding System:** Keys can be generated as "Unbound" (`ANY`). The first time a client enters the key into their MT5, the EA grabs their **Account Name**, **Broker**, and **Account Number**, and silently writes this data to the Google Sheet. The key is then permanently locked to that specific account.
+* **DLL Network Bypass:** Instead of forcing clients to manually add URLs to the MT5 `WebRequest` whitelist (which is confusing for users), the EA uses Windows API (`wininet.dll`) to validate the license. The user only needs to check **"Allow DLL imports"** in their MT5 settings.
+* **XOR URL Obfuscation:** All sensitive URLs (Google Apps Script, GitHub Update URLs) are XOR-encrypted as byte arrays inside the source code. They are invisible to hex editors and reverse-engineering tools analyzing the `.ex5` file.
 
-### 🔄 Auto-Update (ออนไลน์)
-- EA ตรวจสอบเวอร์ชันล่าสุดอัตโนมัติเมื่อเริ่มทำงาน
-- ถ้ามีอัพเดท → ดาวน์โหลดไฟล์ใหม่ไปที่ `MQL5\Files\`
-- **ตั้งค่า**: เพิ่ม URL ใน MT5:
-  - ไปที่ `Tools > Options > Expert Advisors`
-  - เพิ่ม `https://raw.githubusercontent.com` ในช่อง Allow WebRequest
+## 🛠 Included Tools
 
-### 🛡️ Spike Guard (ป้องกันข่าวกระชากก่อนเวลา)
-- ตรวจจับราคาวิ่งแรงผิดปกติก่อนเวลาข่าว
-- ทำงานเฉพาะ X นาทีก่อนข่าว (ตั้งค่าได้)
-- เมื่อตรวจพบ spike:
-  - **Widen Pending**: เลื่อน pending order ออกไกลขึ้น
-  - **Disable Price Track**: ปิดการเลื่อนตามราคา
-  - **Both**: ทำทั้งสองอย่าง
-- **เปิด/ปิดได้** ผ่านปุ่มบน panel (ช่วงทดสอบ)
+### License Generator (`tools/LicenseGenerator.py`)
+A Python GUI application (built with Tkinter) for the EA Administrator. 
+- Input a 5-character serial, customer name, broker, and account number.
+- Generates a cryptographically hashed license key (djb2 hash algorithm).
+- Automatically syncs the generated key to your Google Sheet database in real-time.
 
-### 🔀 Cancel Opposite Toggle
-- เลือกได้ว่าจะลบ Pending ฝั่งตรงข้ามหรือไม่เมื่อ order ถูก execute
-- **ON** = ลบฝั่งตรงข้าม (พฤติกรรมเดิม)
-- **OFF** = เก็บ pending ทั้งสองฝั่งไว้
-- Toggle ได้จากปุ่มบน panel
+**To compile the License Generator into an `.exe`:**
+```bash
+pip install pyinstaller
+pyinstaller --noconsole --onefile --windowed --name "NonfarmRich_LicenseGenerator" tools/LicenseGenerator.py
+```
 
----
+## ⚙️ Installation & Usage (For Clients)
 
-## 🔧 Bug Fixes จาก v1.0
-
-| # | ปัญหา | ระดับ | แก้ไข |
-|---|--------|-------|-------|
-| 1 | Ticket หลุดเมื่อ restart EA | 🔴 Critical | เก็บ ticket ใน GlobalVariable |
-| 2 | ตรวจจับ execution ผิดฝั่ง | 🔴 Critical | ใช้ HasPositionByMagic() ตรวจ position จริง |
-| 3 | OrderDelete ไม่เช็คสถานะ | 🔴 Critical | SafeCancelOrder() ตรวจ ORDER_STATE |
-| 4 | Modify ถี่เกินไป (ทุก tick) | 🟠 High | Throttle 500ms + min 5 points |
-| 5 | Filling type hardcode FOK | 🟠 High | Auto-detect ตามโบรกเกอร์ |
-| 6 | TP/SL Order#2 คำนวณจากราคา Order#1 | 🟠 High | คำนวณจากราคา entry ของ Order#2 |
-| 7 | `ordersOpened` ไม่ sync กับสถานะจริง | 🟡 Medium | SyncOrderState() ทุก tick |
-| 8 | ไม่มี retry logic | 🟡 Medium | Retry 3 ครั้งใน SendPendingOrder |
-| 9 | SL=0 ไม่มี safety net | 🟡 Medium | Emergency SL parameter |
-| 10 | ใช้ OnTradeTransaction | 🟢 Low | Event-driven execution check |
-
----
-
-## 📦 วิธีติดตั้ง
-
-1. คัดลอก `NonfarmRich_v2.mq5` ไปที่ `MQL5\Experts\`
-2. คัดลอก `tools\NonfarmRich_KeyGenerator.mq5` ไปที่ `MQL5\Scripts\`
-3. Compile ทั้งสองไฟล์ใน MetaEditor
-4. รัน Script `NonfarmRich_KeyGenerator` เพื่อสร้าง License Key
-5. แนบ EA `NonfarmRich_v2` บนชาร์ต ใส่ License Key ที่สร้างไว้
-
-### ตั้งค่า Auto-Update
-- ไปที่ `Tools > Options > Expert Advisors`
-- ✅ Allow WebRequest for listed URL
-- เพิ่ม: `https://raw.githubusercontent.com`
-
----
-
-## 📝 Changelog
-
-### v2.0.0 (2026-10-02)
-- เพิ่มระบบ License Key
-- เพิ่ม Auto-Update ออนไลน์
-- เพิ่ม Spike Guard ป้องกันข่าวกระชาก
-- เพิ่ม Cancel Opposite Toggle
-- แก้ไข bug 10 รายการจาก v1.0
-- UI Dark Theme ใหม่
-- Ticket persistence ผ่าน GlobalVariable
-- OnTradeTransaction event-driven
-
-### v1.0.0
-- เวอร์ชันแรก: Buy/Sell Stop 2 คู่
-- Price Tracking, Trailing Stop
-- News Countdown, Auto-open
-- Lot Calculation from margin
+1. Copy `NonfarmRich_v3.ex5` to your MT5 `MQL5/Experts` folder.
+2. Open MetaTrader 5 and refresh the Expert Advisors list.
+3. Drag the EA onto the chart.
+4. Go to the **Dependencies** (or Common) tab and check **"Allow DLL imports"**.
+5. Go to the **Inputs** tab and enter your License Key.
+6. Click OK. The EA will validate your license and bind it to your account automatically.
