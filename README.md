@@ -1,43 +1,48 @@
-# NonfarmRich EA v3.0
+# 📈 NonfarmRich EA v3.0 - คู่มือการใช้งาน
 
-**NonfarmRich EA** is a professional Expert Advisor (EA) for MetaTrader 5, specifically designed for high-volatility news trading (such as Non-Farm Payrolls, CPI, and Interest Rate decisions).
+**NonfarmRich EA** เป็น Expert Advisor (บอทเทรด) บน MetaTrader 5 ที่ถูกออกแบบมาเพื่อ **เทรดชนข่าว** ที่มีความผันผวนสูงโดยเฉพาะ เช่น ข่าว Non-Farm Payrolls (NFP), ข่าวเงินเฟ้อ (CPI), และการประกาศอัตราดอกเบี้ย 
 
-## 🚀 Key Trading Features
+---
 
-* **Straddle Pending Orders (Buy Stop / Sell Stop):** Automatically places pending orders at a specified distance from the current price right before a news event.
-* **Cancel Opposite Pending:** When one pending order is triggered (e.g., Buy Stop is hit), the EA can automatically delete the opposite pending order (Sell Stop) to prevent whip-saw losses. This can be toggled on/off directly from the EA's on-chart UI.
-* **Spike Guard:** A protective mechanism that monitors price ticks just seconds before the news release. If it detects abnormal price manipulation or massive spikes (which often cause severe slippage), it will automatically pause tracking or move pending orders to a safer distance.
-* **Trailing Stop:** Automatically trails the Stop Loss behind the current price once the trade is in profit, securing gains dynamically.
-* **Lot Size Calculator:** Built-in dynamic lot sizing based on account balance and risk parameters.
+## ⚙️ ฟังก์ชันการทำงานหลัก (EA Features)
 
-## 🔐 Licensing & Security System (v3.0)
+### 1. ระบบวางคำสั่งซื้อขายล่วงหน้า 2 ฝั่ง (Straddle Pending Orders)
+EA จะทำการวาง Pending Order ไว้ทั้งฝั่ง Buy (Buy Stop) และ Sell (Sell Stop) ในระยะที่กำหนด (Points) จากราคาปัจจุบัน เพื่อดักรอราคากระชากแรงๆ
+* **ตัวอย่าง:** ข่าว NFP จะออกตอน 19:30 น. ราคาปัจจุบันอยู่ที่ 2000.00 คุณตั้งระยะ `BuyStopPoints = 300` และ `SellStopPoints = 300` EA จะวาง Buy Stop ไว้ที่ 2003.00 และ Sell Stop ที่ 1997.00 
 
-Version 3.0 introduces a highly secure, centralized licensing system integrated with **Google Sheets**.
+### 2. ระบบยกเลิกฝั่งตรงข้ามอัตโนมัติ (Cancel Opposite Pending)
+เมื่อราคาพุ่งไปชน Pending Order ฝั่งใดฝั่งหนึ่งจนเปิดเป็นออเดอร์จริงแล้ว EA สามารถยกเลิก Pending Order อีกฝั่งที่เหลืออยู่ทิ้งได้ทันที เพื่อป้องกันการโดนลากกลับไปกินอีกฝั่ง (Whipsaw)
+* **ตัวอย่าง:** ราคาพุ่งขึ้นไปชน Buy Stop ที่ 2003.00 (ได้ไม้ Buy มาแล้ว) EA จะสั่ง Delete ออเดอร์ Sell Stop ที่ 1997.00 ทิ้งทันที ทำให้พอร์ตปลอดภัยจากการสวิงกลับอย่างรุนแรง
 
-* **Centralized Management:** Licenses are managed via a Google Sheet, acting as a real-time database. You can instantly see which accounts are active or revoke licenses.
-* **Auto-Binding System:** Keys can be generated as "Unbound" (`ANY`). The first time a client enters the key into their MT5, the EA grabs their **Account Name**, **Broker**, and **Account Number**, and silently writes this data to the Google Sheet. The key is then permanently locked to that specific account.
-* **DLL Network Bypass:** Instead of forcing clients to manually add URLs to the MT5 `WebRequest` whitelist (which is confusing for users), the EA uses Windows API (`wininet.dll`) to validate the license. The user only needs to check **"Allow DLL imports"** in their MT5 settings.
-* **XOR URL Obfuscation:** All sensitive URLs (Google Apps Script, GitHub Update URLs) are XOR-encrypted as byte arrays inside the source code. They are invisible to hex editors and reverse-engineering tools analyzing the `.ex5` file.
+### 3. ระบบป้องกันราคากระชากก่อนข่าว (Spike Guard) 🛡️
+หลายครั้งที่ก่อนข่าวออก โบรกเกอร์จะถ่างสเปรด (Spread) หรือมีแรงสะบัดหลอกกิน Stop Loss ระบบนี้จะช่วยปกป้องพอร์ตของคุณ
+* **การทำงาน:** หากในช่วงวินาทีก่อนข่าวออก EA ตรวจพบว่าราคามีการกระชากอย่างรุนแรง (Tick กระโดด) หรือสเปรดถ่างเกินค่าที่กำหนด EA จะทำการ "หยุดขยับ Pending" (Pause Price Track) หรือถอย Pending Order ออกไปให้ไกลขึ้นชั่วคราว เพื่อหลีกเลี่ยงการเปิดออเดอร์ในราคาที่แย่จากภาวะ Slippage
 
-## 🛠 Included Tools
+### 4. ระบบเลื่อน Stop Loss ตามกำไร (Trailing Stop)
+เมื่อออเดอร์เปิดและวิ่งไปในทิศทางที่ทำกำไร EA จะขยับ Stop Loss ตามราคาปัจจุบันไปเรื่อยๆ เพื่อล็อคกำไรไม่ให้กลับมาขาดทุน
+* **ตัวอย่าง:** ตั้งค่า Trailing Start ไว้ 500 จุด เมื่อราคาพุ่งทำกำไรไปแล้ว 500 จุด EA จะขยับ SL มาบังหน้าทุน (Break-Even) ทันที และถ้าราคาพุ่งต่อไปที่ 1,000 จุด EA ก็จะขยับ SL ตามมาล็อคกำไรให้ที่ระยะ 500 จุด
 
-### License Generator (`tools/LicenseGenerator.py`)
-A Python GUI application (built with Tkinter) for the EA Administrator. 
-- Input a 5-character serial, customer name, broker, and account number.
-- Generates a cryptographically hashed license key (djb2 hash algorithm).
-- Automatically syncs the generated key to your Google Sheet database in real-time.
+### 5. ระบบคำนวณ Lot Size อัตโนมัติ (Dynamic Lot Calculator)
+คำนวณขนาด Lot Size ให้พอดีกับความเสี่ยง (Risk %) ที่คุณยอมรับได้ โดยอ้างอิงจากระยะ Stop Loss และเงินทุน (Balance) ปัจจุบัน
 
-**To compile the License Generator into an `.exe`:**
-```bash
-pip install pyinstaller
-pyinstaller --noconsole --onefile --windowed --name "NonfarmRich_LicenseGenerator" tools/LicenseGenerator.py
-```
+---
 
-## ⚙️ Installation & Usage (For Clients)
+## 🔐 ระบบความปลอดภัยและ License (v3.0)
 
-1. Copy `NonfarmRich_v3.ex5` to your MT5 `MQL5/Experts` folder.
-2. Open MetaTrader 5 and refresh the Expert Advisors list.
-3. Drag the EA onto the chart.
-4. Go to the **Dependencies** (or Common) tab and check **"Allow DLL imports"**.
-5. Go to the **Inputs** tab and enter your License Key.
-6. Click OK. The EA will validate your license and bind it to your account automatically.
+เวอร์ชัน 3.0 ได้ปรับปรุงระบบ License ให้มีความปลอดภัยระดับสูงสุด และง่ายต่อการใช้งานของลูกค้า
+
+* **Google Sheets Database:** ข้อมูล License ทั้งหมดจะถูกเก็บและตรวจสอบผ่าน Google Sheets ของคุณแบบ Real-time (ลบ หรือ แบน คีย์กลางอากาศได้ทันที)
+* **Auto-Binding (ล็อกพอร์ตอัตโนมัติ):** คุณสามารถ Gen คีย์แบบปล่อยให้ช่องต่างๆ เป็น `ANY` ส่งให้ลูกค้าได้เลย เมื่อลูกค้าเอาคีย์ไปใส่ใน MT5 ครั้งแรก EA จะไปดึง **ชื่อลูกค้า**, **โบรกเกอร์** และ **เลขพอร์ต** ใน MT5 ของเขา มาเขียนทับลงใน Google Sheet อัตโนมัติ เพื่อล็อกพอร์ตนั้นให้ใช้คีย์ได้เพียงพอร์ตเดียวตลอดไป
+* **DLL Bypass Network:** EA สื่อสารกับ Google Sheets ผ่านไฟล์ระบบของ Windows (`wininet.dll`) ทำให้ **ลูกค้าไม่ต้องไปเพิ่ม URL ในช่อง WebRequest ให้ยุ่งยาก** แค่ติ๊กถูกที่ช่อง `"Allow DLL imports"` ก็ใช้งานได้ทันที
+* **XOR Obfuscation:** ลิงก์เชื่อมต่อทั้งหมดถูกเข้ารหัส (Encrypt) ฝังไว้ในไฟล์ `.ex5` ป้องกันการโดนโปรแกรมแกะโค้ด (Decompiler) ล้วงความลับ 100%
+
+---
+
+## 💻 คู่มือการใช้งานสำหรับแอดมิน (License Generator)
+
+โปรแกรมตัวสร้าง License ให้ลูกค้า ถูกรวบรวมไว้ในโฟลเดอร์ `tools/` บน Git
+1. เปิดโปรแกรม `NonfarmRich_LicenseGenerator.exe` ขึ้นมา
+2. ตั้งชื่อ **Serial** (ความยาวตั้งแต่ 3 - 15 ตัวอักษร เช่น `USER123`)
+3. พิมพ์ **ชื่อลูกค้า, โบรกเกอร์, เลขพอร์ต** (หรือปล่อยเป็น `ANY` เอาไว้ เพื่อให้ระบบล็อกพอร์ตอัตโนมัติทำงานเมื่อลูกค้าล็อคอิน)
+4. กดปุ่ม **Generate & Add to Sheet** 
+5. โปรแกรมจะ Gen Key ออกมา (เช่น `NFARM-USER123-A7FX9`) และส่งข้อมูลบรรทัดนั้นเข้าไปบันทึกใน Google Sheet ให้ทันที! นำคีย์ในกล่องไปส่งให้ลูกค้าได้เลย
