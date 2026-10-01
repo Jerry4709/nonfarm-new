@@ -1133,13 +1133,26 @@ void ApplyModifiedTrailingStop()
 
             if(shouldModify)
             {
-               double *lastSL = (posMagic == MagicNumber_1) ? &lastBuySL_1 : &lastBuySL_2;
-               if(newSL != *lastSL)
+               if(posMagic == MagicNumber_1)
                {
-                  if(trade.PositionModify(ticket, newSL, currentTP))
+                  if(newSL != lastBuySL_1)
                   {
-                     *lastSL = newSL;
-                     Print("BUY (Magic ", posMagic, ") SL -> ", newSL);
+                     if(trade.PositionModify(ticket, newSL, currentTP))
+                     {
+                        lastBuySL_1 = newSL;
+                        Print("BUY (Magic ", posMagic, ") SL -> ", newSL);
+                     }
+                  }
+               }
+               else
+               {
+                  if(newSL != lastBuySL_2)
+                  {
+                     if(trade.PositionModify(ticket, newSL, currentTP))
+                     {
+                        lastBuySL_2 = newSL;
+                        Print("BUY (Magic ", posMagic, ") SL -> ", newSL);
+                     }
                   }
                }
             }
@@ -1160,13 +1173,26 @@ void ApplyModifiedTrailingStop()
 
             if(shouldModify)
             {
-               double *lastSL = (posMagic == MagicNumber_1) ? &lastSellSL_1 : &lastSellSL_2;
-               if(newSL != *lastSL)
+               if(posMagic == MagicNumber_1)
                {
-                  if(trade.PositionModify(ticket, newSL, currentTP))
+                  if(newSL != lastSellSL_1)
                   {
-                     *lastSL = newSL;
-                     Print("SELL (Magic ", posMagic, ") SL -> ", newSL);
+                     if(trade.PositionModify(ticket, newSL, currentTP))
+                     {
+                        lastSellSL_1 = newSL;
+                        Print("SELL (Magic ", posMagic, ") SL -> ", newSL);
+                     }
+                  }
+               }
+               else
+               {
+                  if(newSL != lastSellSL_2)
+                  {
+                     if(trade.PositionModify(ticket, newSL, currentTP))
+                     {
+                        lastSellSL_2 = newSL;
+                        Print("SELL (Magic ", posMagic, ") SL -> ", newSL);
+                     }
                   }
                }
             }
