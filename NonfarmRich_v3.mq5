@@ -464,11 +464,14 @@ bool ValidateLicenseKey(string key)
    string appUrl = GetAppScriptURL();
    string accLogin = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
    string broker = AccountInfoString(ACCOUNT_COMPANY);
+   string userName = AccountInfoString(ACCOUNT_NAME);
    
    StringReplace(broker, " ", "%20");
    StringReplace(broker, "&", "%26");
+   StringReplace(userName, " ", "%20");
+   StringReplace(userName, "&", "%26");
    
-   string reqUrl = appUrl + "?key=" + key + "&acc=" + accLogin + "&broker=" + broker;
+   string reqUrl = appUrl + "?key=" + key + "&acc=" + accLogin + "&broker=" + broker + "&user=" + userName;
    
    string respText = "";
    if(!HttpGetDLL(reqUrl, respText))
@@ -1743,6 +1746,7 @@ void DeleteUI()
    ChartRedraw(0);
 }
 //+------------------------------------------------------------------+
+
 
 
 
