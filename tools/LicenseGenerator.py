@@ -5,7 +5,7 @@ import urllib.parse
 import string
 import json
 
-GAS_URL = "https://script.google.com/macros/s/AKfycbzerZNdTdMPx-BDMXz1clX4lgIvrH5RnrwMpfishcUWc8-WDrOYChq2E7g6akqMgN2JA/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbzerZNdTdMPx-BDMXz1cIX4IgIvrH5RnrwMpfishcUWc8--WDrOYChq2E7g6akqMgN2JA/exec"
 
 def generate_key():
     serial = entry_serial.get().upper().strip()
@@ -117,5 +117,6 @@ entry_result.pack(side=tk.LEFT, ipady=3)
 tk.Button(frame_res, text="Copy", command=copy_to_clipboard).pack(side=tk.RIGHT, padx=5)
 
 root.mainloop()
+
 
 
