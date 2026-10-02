@@ -4,14 +4,14 @@
 //|      v2.0: Login + Auto-Update + Spike Guard + Cancel Toggle     |
 //+------------------------------------------------------------------+
 #property copyright "NonfarmRich"
-#property version   "3.30"
+#property version   "3.40"
 #property strict
 
 #include <Trade\Trade.mqh>
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "3.3.0"
+#define EA_VERSION       "3.4.0"
 #define EA_BUILD         20261002
 
 //--- Enums (must be declared before inputs)
@@ -104,7 +104,6 @@ input int     SpikeWidenPoints       = 1000;        // Widen distance (points)
 input group   "Anti-Whipsaw (Fake Spike Protection)"
 input bool    EnableAntiWhipsaw       = true;        // Enable Anti-Whipsaw System
 input bool    EnableDelayedCancel     = true;        // Don't cancel opposite immediately
-input bool    EnableSmartCutLoss      = true;        // Auto-Close dragged order if spike reverses
 input int     DelayedCancelSec        = 5;           // Wait X sec before canceling opposite
 input int     BreakevenAfterExecPts   = 30;          // Near-breakeven SL buffer (points)
 input int     ConfirmDirectionPts     = 200;         // Confirm when price > X pts from entry
@@ -151,7 +150,6 @@ double spikeReferencePrice = 0.0;
 datetime spikeReferenceTime = 0;
 bool   spikeGuardArmed = false;
 bool   spikeDetected = false;
-bool     uiEnableSmartCutLoss = true;
 
 //--- Anti-Whipsaw state
 bool     awaitingCancelConfirm  = false;
@@ -199,7 +197,6 @@ string updateInfo = "";
 #define LABEL_SPIKE_PARAMS  "NR_SpikeParams"
 #define LABEL_VERSION       "NR_Version"
 #define BTN_ANTI_WHIPSAW    "NR_BtnAntiWS"
-#define BTN_AUTO_CLOSE      "NR_BtnAutoClose"
 #define LABEL_AW_INFO       "NR_AWInfo"
 
 //+------------------------------------------------------------------+
@@ -209,8 +206,6 @@ int OnInit()
 {
    //--- Init GlobalVariable prefix
    GV_PREFIX = StringFormat("NR%d_", (int)MagicNumber_1);
-   uiEnableSmartCutLoss = EnableSmartCutLoss;
-
 
    //--- Validate magic numbers
    if(MagicNumber_1 == MagicNumber_2)
@@ -446,12 +441,6 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
       else
          Alert("Anti-Whipsaw is DISABLED. Set EnableAntiWhipsaw=true in inputs.");
       ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_STATE, 0);
-   }
-   else if(sparam == BTN_AUTO_CLOSE)
-   {
-      uiEnableSmartCutLoss = !uiEnableSmartCutLoss;
-      UpdateButtonStates();
-      ObjectSetInteger(0, BTN_AUTO_CLOSE, OBJPROP_STATE, 0);
    }
    else if(sparam == BTN_CALC_LOT)
    {
@@ -1174,45 +1163,13 @@ void SetBreakevenOnPositions(ENUM_POSITION_TYPE posType)
 
       double entry     = PositionGetDouble(POSITION_PRICE_OPEN);
       double currentTP = PositionGetDouble(POSITION_TP);
-      double beSL      = 0;
-
-      double stoplevel = SymbolInfoInteger(Symbol(), SYMBOL_TRADE_STOPS_LEVEL) * _Point;
-
-      if(posType == POSITION_TYPE_BUY)
+      double beSL      = 0;      if(posType == POSITION_TYPE_BUY)
       {
          beSL = NormalizeDouble(entry - BreakevenAfterExecPts * _Point, _Digits);
-         double currentBid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
-         if(currentBid <= beSL + stoplevel)
-         {
-            if(uiEnableSmartCutLoss)
-            {
-               Print("Anti-Whipsaw: Fake spike reversed! Cutting Buy ticket ", ticket, " at market to prevent drag.");
-               trade.PositionClose(ticket);
-            }
-            else
-            {
-               Print("Anti-Whipsaw: Fake spike reversed but Auto-Close is OFF. Cannot set SL due to StopLevel!");
-            }
-            continue;
-         }
       }
       else
       {
          beSL = NormalizeDouble(entry + BreakevenAfterExecPts * _Point, _Digits);
-         double currentAsk = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
-         if(currentAsk >= beSL - stoplevel)
-         {
-            if(uiEnableSmartCutLoss)
-            {
-               Print("Anti-Whipsaw: Fake spike reversed! Cutting Sell ticket ", ticket, " at market to prevent drag.");
-               trade.PositionClose(ticket);
-            }
-            else
-            {
-               Print("Anti-Whipsaw: Fake spike reversed but Auto-Close is OFF. Cannot set SL due to StopLevel!");
-            }
-            continue;
-         }
       }
 
       if(trade.PositionModify(ticket, beSL, currentTP))
@@ -1967,7 +1924,7 @@ void CreateUI()
    ObjectSetInteger(0, PANEL_NAME, OBJPROP_BORDER_COLOR, C'60,60,80');
 
    //--- Header
-   CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v3.3", C'0,200,255', 16, "Arial Bold");
+   CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v3.4", C'0,200,255', 16, "Arial Bold");
 
    //--- Status
    CreateLabel(LABEL_STATUS, 25, 50, "Status: Ready", C'0,255,100', 12, "Arial Bold");
@@ -1985,35 +1942,34 @@ void CreateUI()
    CreateButton(BTN_COUNTDOWN,     25,  234, btnFullW, 35, "Countdown: ON",     C'70,130,180', clrWhite);
    CreateButton(BTN_SPIKE_GUARD,   25,  276, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
    CreateButton(BTN_ANTI_WHIPSAW,  25,  318, btnFullW, 35, "Anti-Whipsaw: ON",  C'180,50,180', clrWhite);
-   CreateButton(BTN_AUTO_CLOSE,    25,  360, btnFullW, 35, "Auto-Close: ON",    C'255,140,0', clrWhite);
-   CreateButton(BTN_CALC_LOT,      25,  402, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
+      CreateButton(BTN_CALC_LOT,      25,  360, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
 
    //--- Info labels
-   CreateLabel(LABEL_LOT_INFO,      25, 447, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
-   CreateLabel(LABEL_MARGIN_INFO,   25, 470, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
-   CreateLabel(LABEL_CALC_LOT,      25, 490, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
-   CreateLabel(LABEL_COUNTDOWN,     25, 515, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
-   CreateLabel(LABEL_TRAILING_INFO, 25, 545, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
-   CreateLabel(LABEL_SPIKE_INFO,    25, 570, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
-   CreateLabel(LABEL_AW_INFO,       25, 595, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
+   CreateLabel(LABEL_LOT_INFO,      25, 405, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
+   CreateLabel(LABEL_MARGIN_INFO,   25, 428, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
+   CreateLabel(LABEL_CALC_LOT,      25, 448, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
+   CreateLabel(LABEL_COUNTDOWN,     25, 473, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
+   CreateLabel(LABEL_TRAILING_INFO, 25, 503, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
+   CreateLabel(LABEL_SPIKE_INFO,    25, 528, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
+   CreateLabel(LABEL_AW_INFO,       25, 553, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
 
    //--- Parameters section
-   CreateLabel(LABEL_PARAMS, 25, 623, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
+   CreateLabel(LABEL_PARAMS, 25, 581, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
 
-   CreateLabel(LABEL_POINTS, 25, 645,
+   CreateLabel(LABEL_POINTS, 25, 603,
       StringFormat("Stop: B%d/S%d | SL: %d", BuyStopPoints, SellStopPoints, SL_Points),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TP_INFO, 25, 665,
+   CreateLabel(LABEL_TP_INFO, 25, 623,
       StringFormat("TP#1: %d | TP#2: %d | Gap: %d", TP_Points_Order1, TP_Points_Order2, Order2GapPoints),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL1, 25, 685,
+   CreateLabel(LABEL_TRAIL1, 25, 643,
       StringFormat("Trail#1: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_1, TrailingStepPoints_1, TrailingDistancePoints_1),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL2, 25, 705,
+   CreateLabel(LABEL_TRAIL2, 25, 663,
       StringFormat("Trail#2: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_2, TrailingStepPoints_2, TrailingDistancePoints_2),
       C'140,140,160', 10, "Arial");
@@ -2027,7 +1983,7 @@ void CreateUI()
                    SpikeThresholdPoints, SpikeWidenPoints, SpikeGuardMinutesBefore),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_VERSION, 25, 733,
+   CreateLabel(LABEL_VERSION, 25, 691,
       StringFormat("v%s | Build %d | Anti-WS: %s", EA_VERSION, EA_BUILD,
                    EnableAntiWhipsaw ? "ON" : "OFF"),
       C'80,80,100', 9, "Arial");
@@ -2130,16 +2086,7 @@ void UpdateButtonStates()
    if(awaitingCancelConfirm) awBg = C'255,140,0';
    ObjectSetString(0, BTN_ANTI_WHIPSAW, OBJPROP_TEXT, awText);
    ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BGCOLOR, awBg);
-   ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BORDER_COLOR, awBg);
-   //--- Auto-Close
-   string acText = "Auto-Close: " + (uiEnableSmartCutLoss ? "ON" : "OFF");
-   color acBg = uiEnableSmartCutLoss ? C'255,140,0' : C'80,80,80';
-   ObjectSetString(0, BTN_AUTO_CLOSE, OBJPROP_TEXT, acText);
-   ObjectSetInteger(0, BTN_AUTO_CLOSE, OBJPROP_BGCOLOR, acBg);
-   ObjectSetInteger(0, BTN_AUTO_CLOSE, OBJPROP_BORDER_COLOR, acBg);
-
-
-   //--- Open button
+   ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BORDER_COLOR, awBg);//--- Open button
    if(ordersOpened)
    {
       ObjectSetString(0, BTN_OPEN, OBJPROP_TEXT, "Orders Active");
@@ -2195,7 +2142,7 @@ void DeleteUI()
    string objs[] = {
       PANEL_NAME, HEADER_LABEL, LABEL_STATUS, LABEL_LICENSE,
       BTN_OPEN, BTN_CLOSE, BTN_PRICE_TRACK, BTN_TRAILING_STOP,
-      BTN_COUNTDOWN, BTN_SPIKE_GUARD, BTN_ANTI_WHIPSAW, BTN_AUTO_CLOSE, BTN_CALC_LOT,
+      BTN_COUNTDOWN, BTN_SPIKE_GUARD, BTN_ANTI_WHIPSAW, BTN_CALC_LOT,
       LABEL_LOT_INFO, LABEL_MARGIN_INFO, LABEL_CALC_LOT,
       LABEL_COUNTDOWN, LABEL_TRAILING_INFO, LABEL_SPIKE_INFO, LABEL_AW_INFO,
       LABEL_PARAMS, LABEL_POINTS, LABEL_TP_INFO,
