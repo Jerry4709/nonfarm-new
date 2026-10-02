@@ -49,7 +49,6 @@ Expert Advisor สำหรับเทรดชนข่าว Non-Farm Payroll
 ### ??? Anti-Whipsaw (Fake Spike Protection - ป้องกันการสับหลอก)
 * **EnableAntiWhipsaw**: เปิด/ปิด ระบบป้องกันกราฟสับหลอก (กินฝั่งนึงแล้วลากไปอีกฝั่งอย่างรวดเร็ว)
 * **EnableDelayedCancel**: ไม่ลบ Pending Order อีกฝั่งทิ้งทันทีเมื่ออีกฝั่งทำงาน แต่จะรอประเมินสถานการณ์ก่อน
-* **EnableSmartCutLoss (Auto-Close)**: **[New v3.3]** ปิดออเดอร์ที่ถูกลากทันที (Market Close) หากตั้ง SL ไม่ทันเพราะติดระยะ Stop Level ของโบรคเกอร์
 * **DelayedCancelSec**: รอประเมินสถานการณ์กี่วินาที ก่อนจะยอมลบไม้ Pending อีกฝั่งทิ้ง (ช่วงวัดใจ)
 * **BreakevenAfterExecPts**: หากไม้ฝั่งใดทำงานแล้ว จะขยับ SL มากันทุน (บวก/ลบ ระยะที่ตั้งไว้เล็กน้อย) เพื่อลดความเสี่ยงทันที
 * **ConfirmDirectionPts**: ต้องวิ่งไปถูกทางเกินกี่จุด ถึงจะถือว่า 'ของจริง' และปลอดภัยที่จะลบไม้ฝั่งตรงข้ามทิ้ง
@@ -57,4 +56,5 @@ Expert Advisor สำหรับเทรดชนข่าว Non-Farm Payroll
 ### ?? Expert Advisor Settings (การตั้งค่าทั่วไป)
 * **MagicNumber_1**: รหัสประจำตัว (Magic Number) สำหรับ Order ที่ 1 (ใช้แยกออเดอร์จาก EA ตัวอื่น)
 * **MagicNumber_2**: รหัสประจำตัว (Magic Number) สำหรับ Order ที่ 2
+
 
