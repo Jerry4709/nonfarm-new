@@ -4,14 +4,14 @@
 //|      v2.0: Login + Auto-Update + Spike Guard + Cancel Toggle     |
 //+------------------------------------------------------------------+
 #property copyright "NonfarmRich"
-#property version   "2.00"
+#property version   "3.30"
 #property strict
 
 #include <Trade\Trade.mqh>
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "3.0.0"
+#define EA_VERSION       "3.3.0"
 #define EA_BUILD         20261002
 
 //--- Enums (must be declared before inputs)
@@ -37,7 +37,7 @@ enum ENUM_SPIKE_ACTION
 
 //--- License
 input group   "License Settings"
-input string  LicenseKey        = "";        // License Key (NFARM-XXXXX-XXXXX)
+input string  LicenseKey        = "AUTO_LOAD"; // License Key (AUTO_LOAD to use saved)
 
 //--- Auto-Update
 input group   "Auto-Update"
@@ -47,13 +47,8 @@ input bool    EnableAutoUpdate   = true;      // Check for updates on startup
 input group   "Pending Orders"
 input int     BuyStopPoints      = 3000;     // Buy Stop distance (points)
 input int     SellStopPoints     = 3000;     // Sell Stop distance (points)
-input int     SL_Points          = 0;        // Stop Loss (0 = use Emergency SL)
-input int     EmergencySL_Points = 5000;     // Emergency SL when SL=0 (0=disabled)
+input int     SL_Points          = 0;        // Stop Loss (0 = disabled)
 input int     Order2GapPoints    = 10;       // Extra gap for order #2
-
-//--- Cancel Opposite
-input group   "Cancel Opposite Pending"
-input bool    DefaultCancelOpposite = true;  // Default: cancel opposite when executed
 
 //--- Take Profit
 input group   "Take Profit Settings"
@@ -80,10 +75,19 @@ input int     TrailingStepPoints_2     = 0;
 input int     TrailingDistancePoints_2 = 0;
 
 //--- News Countdown
+enum ENUM_NEWS_MODE
+{
+   NEWS_MANUAL,         // Manual Time (Use NewsHour/Minute)
+   NEWS_AUTO_NFP,       // Auto Detect: Nonfarm Payrolls (Backtest/Live)
+   NEWS_AUTO_CPI,       // Auto Detect: CPI (Backtest/Live)
+   NEWS_AUTO_ANY_HIGH   // Auto Detect: Any US High Impact (Backtest/Live)
+};
+
 input group   "News Countdown"
+input ENUM_NEWS_MODE NewsMode = NEWS_AUTO_NFP;
 input ENUM_TIMEZONE_CITY Timezone = LONDON;
 input int     NewsHour                      = 9;
-input int     NewsMinute                    = 40;
+input int     NewsMinute                    = 30;
 input int     OpenBeforeSeconds             = 30;   // Open pending X sec before news
 input int     ClosePriceTrackBeforeSeconds  = 20;   // Disable Price Track X sec before
 
@@ -95,6 +99,15 @@ input int     SpikeThresholdPoints   = 300;         // Spike detection threshold
 input int     SpikeCheckPeriodSec    = 10;          // Check period (seconds)
 input ENUM_SPIKE_ACTION SpikeAction  = SPIKE_BOTH;  // Action when spike detected
 input int     SpikeWidenPoints       = 1000;        // Widen distance (points)
+
+//--- Anti-Whipsaw (Fake Spike Protection)
+input group   "Anti-Whipsaw (Fake Spike Protection)"
+input bool    EnableAntiWhipsaw       = true;        // Enable Anti-Whipsaw System
+input bool    EnableDelayedCancel     = true;        // Don't cancel opposite immediately
+input bool    EnableSmartCutLoss      = true;        // Auto-Close dragged order if spike reverses
+input int     DelayedCancelSec        = 5;           // Wait X sec before canceling opposite
+input int     BreakevenAfterExecPts   = 30;          // Near-breakeven SL buffer (points)
+input int     ConfirmDirectionPts     = 200;         // Confirm when price > X pts from entry
 
 //--- Expert Settings
 input group   "Expert Advisor Settings"
@@ -123,7 +136,6 @@ bool trailingStopActive        = true;
 bool autoOrderPlaced           = false;
 bool countdownEnabled          = true;
 bool priceTrackDisabledByNews  = false;
-bool cancelOppositePendingEnabled = true;   // runtime toggle
 bool spikeGuardEnabled         = true;      // runtime toggle
 
 //--- Trailing SL tracking
@@ -139,6 +151,14 @@ double spikeReferencePrice = 0.0;
 datetime spikeReferenceTime = 0;
 bool   spikeGuardArmed = false;
 bool   spikeDetected = false;
+bool     uiEnableSmartCutLoss = true;
+
+//--- Anti-Whipsaw state
+bool     awaitingCancelConfirm  = false;
+datetime executionTime          = 0;
+bool     buyExecutedFirst       = false;
+bool     sellExecutedFirst      = false;
+double   executionEntryPrice    = 0.0;
 
 //--- Modify throttle
 uint lastModifyTick = 0;
@@ -162,7 +182,6 @@ string updateInfo = "";
 #define BTN_PRICE_TRACK     "NR_BtnPriceTrack"
 #define BTN_TRAILING_STOP   "NR_BtnTrailing"
 #define BTN_COUNTDOWN       "NR_BtnCountdown"
-#define BTN_CANCEL_OPP      "NR_BtnCancelOpp"
 #define BTN_SPIKE_GUARD     "NR_BtnSpikeGuard"
 #define BTN_CALC_LOT        "NR_BtnCalcLot"
 #define LABEL_LOT_INFO      "NR_LotInfo"
@@ -179,6 +198,9 @@ string updateInfo = "";
 #define LABEL_NEWS_TIME     "NR_NewsTime"
 #define LABEL_SPIKE_PARAMS  "NR_SpikeParams"
 #define LABEL_VERSION       "NR_Version"
+#define BTN_ANTI_WHIPSAW    "NR_BtnAntiWS"
+#define BTN_AUTO_CLOSE      "NR_BtnAutoClose"
+#define LABEL_AW_INFO       "NR_AWInfo"
 
 //+------------------------------------------------------------------+
 //| OnInit                                                            |
@@ -187,6 +209,8 @@ int OnInit()
 {
    //--- Init GlobalVariable prefix
    GV_PREFIX = StringFormat("NR%d_", (int)MagicNumber_1);
+   uiEnableSmartCutLoss = EnableSmartCutLoss;
+
 
    //--- Validate magic numbers
    if(MagicNumber_1 == MagicNumber_2)
@@ -195,12 +219,48 @@ int OnInit()
       return(INIT_FAILED);
    }
 
+   //--- License Auto-Load/Save Logic
+   string activeKey = LicenseKey;
+   string fileName = "NonfarmRich_License.txt";
+   
+   if(activeKey == "AUTO_LOAD" || activeKey == "")
+   {
+      if(FileIsExist(fileName))
+      {
+         int handle = FileOpen(fileName, FILE_READ|FILE_TXT|FILE_ANSI);
+         if(handle != INVALID_HANDLE)
+         {
+            activeKey = FileReadString(handle);
+            FileClose(handle);
+            Print("Loaded saved license key from file: ", activeKey);
+         }
+      }
+      else
+      {
+         Alert("No saved license key found! Please enter your License Key in EA inputs.");
+         return(INIT_FAILED);
+      }
+   }
+   else
+   {
+      // User provided a new key, save it for future
+      int handle = FileOpen(fileName, FILE_WRITE|FILE_TXT|FILE_ANSI);
+      if(handle != INVALID_HANDLE)
+      {
+         FileWriteString(handle, activeKey);
+         FileClose(handle);
+         Print("License key saved for future use: ", fileName);
+      }
+   }
+
    //--- License check
-   isLicensed = ValidateLicenseKey(LicenseKey);
+   isLicensed = ValidateLicenseKey(activeKey);
 
    //--- Set runtime toggles from inputs
-   cancelOppositePendingEnabled = DefaultCancelOpposite;
    spikeGuardEnabled = DefaultSpikeGuardOn;
+
+   //--- Optimize for maximum speed during news (Asynchronous execution)
+   trade.SetAsyncMode(true);
 
    //--- Restore state from GlobalVariables
    LoadTickets();
@@ -212,7 +272,7 @@ int OnInit()
    //--- Update license display
    if(isLicensed)
    {
-      string masked = StringSubstr(LicenseKey, 0, 10) + "***";
+      string masked = StringSubstr(activeKey, 0, 10) + "***";
       ObjectSetString(0, LABEL_LICENSE, OBJPROP_TEXT, "License: Valid (" + masked + ")");
       ObjectSetInteger(0, LABEL_LICENSE, OBJPROP_COLOR, C'34,139,34');
    }
@@ -228,6 +288,7 @@ int OnInit()
       CheckForUpdates();
 
    ChartRedraw(0);
+   EventSetMillisecondTimer(100);
    return(INIT_SUCCEEDED);
 }
 
@@ -236,8 +297,29 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    SaveTickets();
    DeleteUI();
+}
+
+//+------------------------------------------------------------------+
+//| HIGH FREQUENCY TIMER (Runs every 100ms regardless of price ticks)|
+//+------------------------------------------------------------------+
+void OnTimer()
+{
+   if(countdownEnabled) UpdateCountdownLabel();
+   
+   if(isLicensed)
+   {
+      if(!autoOrderPlaced && !ordersOpened && countdownEnabled)
+         CheckAndPlaceAutoOrders();
+         
+      if(countdownEnabled && priceTrackingEnabled && !priceTrackDisabledByNews)
+         CheckAutoPriceTrackDisable();
+         
+      if(ordersOpened && EnableAntiWhipsaw && EnableDelayedCancel && awaitingCancelConfirm)
+         ManageDelayedCancel();
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -279,6 +361,10 @@ void OnTick()
    if(ordersOpened)
       CheckOrderExecution();
 
+   //--- Anti-Whipsaw: Delayed Cancel management
+   if(EnableAntiWhipsaw && EnableDelayedCancel && awaitingCancelConfirm)
+      ManageDelayedCancel();
+
    //--- State sync (auto-detect all closed)
    SyncOrderState();
 
@@ -289,6 +375,7 @@ void OnTick()
    //--- Update info labels
    UpdateTrailingInfo();
    UpdateSpikeGuardInfo();
+   UpdateAntiWhipsawInfo();
 }
 
 //+------------------------------------------------------------------+
@@ -329,12 +416,6 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
       UpdateButtonStates();
       ObjectSetInteger(0, BTN_COUNTDOWN, OBJPROP_STATE, 0);
    }
-   else if(sparam == BTN_CANCEL_OPP)
-   {
-      cancelOppositePendingEnabled = !cancelOppositePendingEnabled;
-      UpdateButtonStates();
-      ObjectSetInteger(0, BTN_CANCEL_OPP, OBJPROP_STATE, 0);
-   }
    else if(sparam == BTN_SPIKE_GUARD)
    {
       spikeGuardEnabled = !spikeGuardEnabled;
@@ -346,6 +427,31 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
       }
       UpdateButtonStates();
       ObjectSetInteger(0, BTN_SPIKE_GUARD, OBJPROP_STATE, 0);
+   }
+   else if(sparam == BTN_ANTI_WHIPSAW)
+   {
+      if(EnableAntiWhipsaw)
+      {
+         // Toggle freeze/delayed cancel at runtime is not meaningful
+         // Show info instead
+         Alert(StringFormat("Anti-Whipsaw Settings:\n" +
+            "Delayed Cancel: %s (%d sec)\n" +
+            "Breakeven SL Buffer: %d pts\n" +
+            "Confirm Direction: %d pts\n\n" +
+            "When triggered: Set near-breakeven SL,\n" +
+            "keep opposite pending, wait to confirm.",
+            EnableDelayedCancel ? "ON" : "OFF", DelayedCancelSec,
+            BreakevenAfterExecPts, ConfirmDirectionPts));
+      }
+      else
+         Alert("Anti-Whipsaw is DISABLED. Set EnableAntiWhipsaw=true in inputs.");
+      ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_STATE, 0);
+   }
+   else if(sparam == BTN_AUTO_CLOSE)
+   {
+      uiEnableSmartCutLoss = !uiEnableSmartCutLoss;
+      UpdateButtonStates();
+      ObjectSetInteger(0, BTN_AUTO_CLOSE, OBJPROP_STATE, 0);
    }
    else if(sparam == BTN_CALC_LOT)
    {
@@ -599,7 +705,7 @@ ENUM_ORDER_TYPE_FILLING GetFillingType()
 
 double GetEffectiveSL(double entryPrice, bool isBuy)
 {
-   int slPts = (SL_Points > 0) ? SL_Points : EmergencySL_Points;
+   int slPts = SL_Points;
    if(slPts <= 0) return 0.0;
 
    if(isBuy) return NormalizeDouble(entryPrice - slPts * _Point, _Digits);
@@ -673,6 +779,11 @@ void HandleCloseOrders()
    spikeDetected             = false;
    spikeGuardArmed           = false;
    spikeReferencePrice       = 0;
+   //--- Reset Anti-Whipsaw state
+   awaitingCancelConfirm     = false;
+   buyExecutedFirst          = false;
+   sellExecutedFirst         = false;
+   executionEntryPrice       = 0.0;
    buyPendingPrice1 = 0; sellPendingPrice1 = 0;
    lastBuySL_1 = 0; lastBuySL_2 = 0;
    lastSellSL_1 = 0; lastSellSL_2 = 0;
@@ -987,6 +1098,183 @@ void UpdateSpikeGuardInfo()
 }
 
 //+------------------------------------------------------------------+
+//| ANTI-WHIPSAW FUNCTIONS                                            |
+//+------------------------------------------------------------------+
+
+//--- Delayed Cancel: Wait for direction confirmation before canceling opposite
+void ManageDelayedCancel()
+{
+   if(!awaitingCancelConfirm) return;
+
+   long elapsed = (long)(TimeCurrent() - executionTime);
+   
+   double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+   double movement = 0;
+
+   if(buyExecutedFirst)
+      movement = (currentPrice - executionEntryPrice) / _Point;
+   else if(sellExecutedFirst)
+      movement = (executionEntryPrice - currentPrice) / _Point;
+
+   //--- EARLY CANCELLATION (If price shoots past confirmation threshold instantly)
+   if(movement >= ConfirmDirectionPts)
+   {
+      //--- Direction confirmed -> cancel opposite immediately!
+      if(buyExecutedFirst)
+      {
+         CancelAllSellPendingOrders();
+         Print("Anti-Whipsaw: Direction CONFIRMED Early (Buy +", DoubleToString(movement,0),
+               " pts). Cancelled Sell pending.");
+      }
+      else
+      {
+         CancelAllBuyPendingOrders();
+         Print("Anti-Whipsaw: Direction CONFIRMED Early (Sell +", DoubleToString(movement,0),
+               " pts). Cancelled Buy pending.");
+      }
+      ObjectSetString(0, LABEL_STATUS, OBJPROP_TEXT, "Status: Direction confirmed");
+      
+      // We are done confirming
+      awaitingCancelConfirm = false;
+      return;
+   }
+
+      //--- TIMEOUT CANCELLATION (If 5 seconds passed and it hasn't reached threshold)
+   if(elapsed >= DelayedCancelSec)
+   {
+      //--- Timeout: cancel opposite anyway to prevent stale orders
+      if(buyExecutedFirst)
+         CancelAllSellPendingOrders();
+      else
+         CancelAllBuyPendingOrders();
+
+      Print("Anti-Whipsaw: Timeout (", elapsed, "s). Movement: ",
+            DoubleToString(movement,0), " pts. Cancelling opposite.");
+      ObjectSetString(0, LABEL_STATUS, OBJPROP_TEXT,
+         StringFormat("Status: Cancel timeout (%.0f pts)", movement));
+
+      awaitingCancelConfirm = false;
+      buyExecutedFirst  = false;
+      sellExecutedFirst = false;
+   }
+}
+
+//--- Set near-breakeven SL on newly executed positions
+void SetBreakevenOnPositions(ENUM_POSITION_TYPE posType)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket <= 0 || !PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL) != Symbol()) continue;
+
+      ulong magic = (ulong)PositionGetInteger(POSITION_MAGIC);
+      if(magic != MagicNumber_1 && magic != MagicNumber_2) continue;
+      if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) != posType) continue;
+
+      double entry     = PositionGetDouble(POSITION_PRICE_OPEN);
+      double currentTP = PositionGetDouble(POSITION_TP);
+      double beSL      = 0;
+
+      double stoplevel = SymbolInfoInteger(Symbol(), SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+
+      if(posType == POSITION_TYPE_BUY)
+      {
+         beSL = NormalizeDouble(entry - BreakevenAfterExecPts * _Point, _Digits);
+         double currentBid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+         if(currentBid <= beSL + stoplevel)
+         {
+            if(uiEnableSmartCutLoss)
+            {
+               Print("Anti-Whipsaw: Fake spike reversed! Cutting Buy ticket ", ticket, " at market to prevent drag.");
+               trade.PositionClose(ticket);
+            }
+            else
+            {
+               Print("Anti-Whipsaw: Fake spike reversed but Auto-Close is OFF. Cannot set SL due to StopLevel!");
+            }
+            continue;
+         }
+      }
+      else
+      {
+         beSL = NormalizeDouble(entry + BreakevenAfterExecPts * _Point, _Digits);
+         double currentAsk = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+         if(currentAsk >= beSL - stoplevel)
+         {
+            if(uiEnableSmartCutLoss)
+            {
+               Print("Anti-Whipsaw: Fake spike reversed! Cutting Sell ticket ", ticket, " at market to prevent drag.");
+               trade.PositionClose(ticket);
+            }
+            else
+            {
+               Print("Anti-Whipsaw: Fake spike reversed but Auto-Close is OFF. Cannot set SL due to StopLevel!");
+            }
+            continue;
+         }
+      }
+
+      if(trade.PositionModify(ticket, beSL, currentTP))
+         Print("Anti-Whipsaw: Near-breakeven SL set. Ticket=", ticket,
+               " Entry=", entry, " SL=", beSL, " Buffer=", BreakevenAfterExecPts, "pts");
+   }
+}
+
+//--- Get entry price of a position by type
+double GetPositionEntryByMagic(ENUM_POSITION_TYPE posType)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket <= 0 || !PositionSelectByTicket(ticket)) continue;
+      if(PositionGetString(POSITION_SYMBOL) != Symbol()) continue;
+
+      ulong magic = (ulong)PositionGetInteger(POSITION_MAGIC);
+      if(magic != MagicNumber_1 && magic != MagicNumber_2) continue;
+      if((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) != posType) continue;
+
+      return PositionGetDouble(POSITION_PRICE_OPEN);
+   }
+   return 0.0;
+}
+
+//--- Update Anti-Whipsaw info label
+void UpdateAntiWhipsawInfo()
+{
+   if(!EnableAntiWhipsaw)
+   {
+      ObjectSetString(0, LABEL_AW_INFO, OBJPROP_TEXT, "Anti-Whipsaw: OFF");
+      ObjectSetInteger(0, LABEL_AW_INFO, OBJPROP_COLOR, C'128,128,128');
+      return;
+   }
+
+   if(awaitingCancelConfirm)
+   {
+      long elapsed   = (long)(TimeCurrent() - executionTime);
+      long remaining = (long)DelayedCancelSec - elapsed;
+      string side    = buyExecutedFirst ? "BUY" : "SELL";
+      double currentPrice = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+      double movement = 0;
+
+      if(buyExecutedFirst)
+         movement = (currentPrice - executionEntryPrice) / _Point;
+      else
+         movement = (executionEntryPrice - currentPrice) / _Point;
+
+      ObjectSetString(0, LABEL_AW_INFO, OBJPROP_TEXT,
+         StringFormat("Anti-WS: %s +%.0f pts (confirm %ds)", side, movement,
+                      (int)MathMax(remaining, 0)));
+      ObjectSetInteger(0, LABEL_AW_INFO, OBJPROP_COLOR, C'255,200,0');
+   }
+   else
+   {
+      ObjectSetString(0, LABEL_AW_INFO, OBJPROP_TEXT, "Anti-Whipsaw: Ready");
+      ObjectSetInteger(0, LABEL_AW_INFO, OBJPROP_COLOR, C'100,200,100');
+   }
+}
+
+//+------------------------------------------------------------------+
 //| AUTO PRICE TRACK DISABLE                                          |
 //+------------------------------------------------------------------+
 void CheckAutoPriceTrackDisable()
@@ -1015,22 +1303,66 @@ void CheckOrderExecution()
    bool hasBuyPos  = HasPositionByMagic(POSITION_TYPE_BUY);
    bool hasSellPos = HasPositionByMagic(POSITION_TYPE_SELL);
 
-   //--- If cancel opposite is disabled, skip
-   if(!cancelOppositePendingEnabled) return;
+   //--- Both sides executed (extreme volatility) - don't cancel either
+   if(hasBuyPos && hasSellPos)
+   {
+      //--- If we were awaiting confirmation, clear the state
+      if(awaitingCancelConfirm)
+      {
+         awaitingCancelConfirm = false;
+         buyExecutedFirst  = false;
+         sellExecutedFirst = false;
+         Print("Anti-Whipsaw: Both sides executed. Keeping both positions.");
+      }
+      return;
+   }
 
-   //--- Both sides executed (extreme volatility) - don't cancel
-   if(hasBuyPos && hasSellPos) return;
+   //--- Anti-Whipsaw: Delayed Cancel mode
+   if(EnableAntiWhipsaw && EnableDelayedCancel)
+   {
+      if(hasBuyPos && !awaitingCancelConfirm && !buyExecutedFirst && !sellExecutedFirst)
+      {
+         //--- Buy was triggered -> set breakeven SL and delay cancel
+         awaitingCancelConfirm = true;
+         buyExecutedFirst      = true;
+         executionTime         = TimeCurrent();
+         executionEntryPrice   = GetPositionEntryByMagic(POSITION_TYPE_BUY);
+         SetBreakevenOnPositions(POSITION_TYPE_BUY);
+         Print("Anti-Whipsaw: Buy triggered. Delaying cancel ",
+               DelayedCancelSec, "s. Entry: ", executionEntryPrice);
+         ObjectSetString(0, LABEL_STATUS, OBJPROP_TEXT,
+            "Status: Buy triggered - confirming...");
+         return;
+      }
+      if(hasSellPos && !awaitingCancelConfirm && !sellExecutedFirst && !buyExecutedFirst)
+      {
+         //--- Sell was triggered -> set breakeven SL and delay cancel
+         awaitingCancelConfirm = true;
+         sellExecutedFirst     = true;
+         executionTime         = TimeCurrent();
+         executionEntryPrice   = GetPositionEntryByMagic(POSITION_TYPE_SELL);
+         SetBreakevenOnPositions(POSITION_TYPE_SELL);
+         Print("Anti-Whipsaw: Sell triggered. Delaying cancel ",
+               DelayedCancelSec, "s. Entry: ", executionEntryPrice);
+         ObjectSetString(0, LABEL_STATUS, OBJPROP_TEXT,
+            "Status: Sell triggered - confirming...");
+         return;
+      }
+      //--- If we're awaiting confirmation, don't cancel yet
+      if(awaitingCancelConfirm) return;
+   }
 
+   //--- Normal (immediate) cancel
    if(hasBuyPos)
    {
-      CancelAllSellPendingOrders();
-      Print("Buy executed -> Cancelled Sell pending orders");
+      if(CancelAllSellPendingOrders())
+         Print("Buy executed -> Cancelled Sell pending orders");
    }
 
    if(hasSellPos)
    {
-      CancelAllBuyPendingOrders();
-      Print("Sell executed -> Cancelled Buy pending orders");
+      if(CancelAllBuyPendingOrders())
+         Print("Sell executed -> Cancelled Buy pending orders");
    }
 }
 
@@ -1054,26 +1386,32 @@ bool HasPositionByMagic(ENUM_POSITION_TYPE posType)
 //+------------------------------------------------------------------+
 //| CANCEL HELPERS (with state check)                                 |
 //+------------------------------------------------------------------+
-void SafeCancelOrder(ulong &ticket)
+bool SafeCancelOrder(ulong &ticket)
 {
-   if(ticket == 0) return;
+   if(ticket == 0) return false;
+   bool result = false;
    if(OrderSelect(ticket) && OrderGetInteger(ORDER_STATE) == ORDER_STATE_PLACED)
-      trade.OrderDelete(ticket);
+   {
+      if(trade.OrderDelete(ticket)) result = true;
+   }
    ticket = 0;
+   return result;
 }
 
-void CancelAllBuyPendingOrders()
+bool CancelAllBuyPendingOrders()
 {
-   SafeCancelOrder(buyStopTicket1);
-   SafeCancelOrder(buyStopTicket2);
+   bool c1 = SafeCancelOrder(buyStopTicket1);
+   bool c2 = SafeCancelOrder(buyStopTicket2);
    SaveTickets();
+   return c1 || c2;
 }
 
-void CancelAllSellPendingOrders()
+bool CancelAllSellPendingOrders()
 {
-   SafeCancelOrder(sellStopTicket1);
-   SafeCancelOrder(sellStopTicket2);
+   bool c1 = SafeCancelOrder(sellStopTicket1);
+   bool c2 = SafeCancelOrder(sellStopTicket2);
    SaveTickets();
+   return c1 || c2;
 }
 
 //+------------------------------------------------------------------+
@@ -1121,7 +1459,12 @@ void SyncOrderState()
       buyStopTicket1 = buyStopTicket2 = 0;
       sellStopTicket1 = sellStopTicket2 = 0;
       lastBuySL_1 = lastBuySL_2 = 0;
-      lastSellSL_1 = lastSellSL_2 = 0;
+            lastSellSL_1 = lastSellSL_2 = 0;
+      
+      buyExecutedFirst = false;
+      sellExecutedFirst = false;
+      awaitingCancelConfirm = false;
+      
       SaveTickets();
       UpdateButtonStates();
       ObjectSetString(0, LABEL_STATUS, OBJPROP_TEXT, "Status: All closed (auto-detected)");
@@ -1306,17 +1649,124 @@ datetime GetCurrentTimeInZone()
    return TimeGMT() + (GetTimezoneOffset() * 3600);
 }
 
-datetime GetNextNewsTime()
+datetime autoNewsServerTime = 0;
+datetime lastAutoCheck = 0;
+
+datetime GetNextAutoNewsTimeServer()
+{
+   if(!MQLInfoInteger(MQL_TESTER) && !TerminalInfoInteger(TERMINAL_CONNECTED)) 
+      return 0; // Need connection if not in tester
+      
+   MqlCalendarEvent events[];
+   if(!CalendarEventByCountry("US", events)) return 0;
+   
+   ulong target_ids[];
+   ArrayResize(target_ids, 0);
+   
+   for(int i=0; i<ArraySize(events); i++)
+   {
+      if(events[i].importance != CALENDAR_IMPORTANCE_HIGH && NewsMode != NEWS_AUTO_ANY_HIGH) continue;
+      
+      string name = events[i].name;
+      StringToLower(name);
+      
+      bool match = false;
+      if(NewsMode == NEWS_AUTO_NFP)
+      {
+         if(events[i].id == 840030016 || StringFind(name, "nonfarm payrolls") >= 0) match = true;
+      }
+      else if(NewsMode == NEWS_AUTO_CPI)
+      {
+         if(events[i].id == 840030006 || events[i].id == 840030007 || events[i].id == 840030008 ||
+            StringFind(name, "cpi m/m") >= 0 || StringFind(name, "cpi y/y") >= 0 || 
+            StringFind(name, "consumer price index") >= 0) match = true;
+      }
+      else if(NewsMode == NEWS_AUTO_ANY_HIGH)
+      {
+         if(events[i].importance == CALENDAR_IMPORTANCE_HIGH) match = true;
+      }
+      
+      if(match)
+      {
+         int s = ArraySize(target_ids);
+         ArrayResize(target_ids, s+1);
+         target_ids[s] = events[i].id;
+      }
+   }
+   
+   if(ArraySize(target_ids) == 0) return 0;
+   
+   datetime now = TimeCurrent();
+   datetime nextTime = 0;
+   
+   for(int i=0; i<ArraySize(target_ids); i++)
+   {
+      MqlCalendarValue values[];
+      // Get values from -1 day to +30 days
+      if(CalendarValueHistoryByEvent(target_ids[i], values, now - 86400, now + 30 * 86400))
+      {
+         for(int v=0; v<ArraySize(values); v++)
+         {
+            if(values[v].time > now) // Future event
+            {
+               if(nextTime == 0 || values[v].time < nextTime)
+                  nextTime = values[v].time;
+               break;
+            }
+         }
+      }
+   }
+   return nextTime;
+}
+
+datetime GetNextNewsTimeManualFallback()
 {
    datetime now_gmt = TimeGMT();
    long tz_offset_sec = (long)GetTimezoneOffset() * 3600;
    datetime now_tz = (datetime)(now_gmt + tz_offset_sec);
    datetime today_start = (datetime)(now_tz - (now_tz % 86400));
+   
    datetime today_news = (datetime)(today_start + NewsHour * 3600 + NewsMinute * 60);
-
+   
    if(now_tz > today_news)
-      return (datetime)(today_news + 86400);
+      return (datetime)(today_news + 86400); // Tomorrow's time
+      
    return today_news;
+}
+
+datetime GetNextNewsTime()
+{
+   if(NewsMode == NEWS_MANUAL)
+   {
+      return GetNextNewsTimeManualFallback();
+   }
+   else
+   {
+      // Cache the result for 1 hour
+      if(TimeCurrent() - lastAutoCheck > 3600 || autoNewsServerTime <= TimeCurrent())
+      {
+         autoNewsServerTime = GetNextAutoNewsTimeServer();
+         lastAutoCheck = TimeCurrent();
+      }
+      
+      if(autoNewsServerTime == 0) 
+      {
+         if(NewsMode != NEWS_MANUAL)
+         {
+            static bool warned = false;
+            if(!warned)
+            {
+               Print("WARNING: Calendar API failed or no data in Tester. Falling back to Manual Time!");
+               warned = true;
+            }
+         }
+         return GetNextNewsTimeManualFallback(); // Fallback if API fails
+      }
+         
+      // Convert Server Time to Zone Time for the rest of the EA to use
+      long diff = (long)(GetCurrentTimeInZone() - TimeCurrent());
+      return (datetime)(autoNewsServerTime + diff);
+   }
 }
 
 void UpdateCountdownLabel()
@@ -1502,7 +1952,7 @@ void ValidateTicket(ulong &ticket)
 //+------------------------------------------------------------------+
 void CreateUI()
 {
-   int panelW = 420, panelH = 760;
+   int panelW = 420, panelH = 790;
 
    //--- Panel background
    ObjectCreate(0, PANEL_NAME, OBJ_RECTANGLE_LABEL, 0, 0, 0);
@@ -1517,7 +1967,7 @@ void CreateUI()
    ObjectSetInteger(0, PANEL_NAME, OBJPROP_BORDER_COLOR, C'60,60,80');
 
    //--- Header
-   CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v2.0", C'0,200,255', 16, "Arial Bold");
+   CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v3.3", C'0,200,255', 16, "Arial Bold");
 
    //--- Status
    CreateLabel(LABEL_STATUS, 25, 50, "Status: Ready", C'0,255,100', 12, "Arial Bold");
@@ -1533,50 +1983,53 @@ void CreateUI()
    CreateButton(BTN_PRICE_TRACK,   25,  150, btnFullW, 35, "Price Track: ON",   C'34,139,34',  clrWhite);
    CreateButton(BTN_TRAILING_STOP, 25,  192, btnFullW, 35, "Trailing Stop: ON", C'34,139,34',  clrWhite);
    CreateButton(BTN_COUNTDOWN,     25,  234, btnFullW, 35, "Countdown: ON",     C'70,130,180', clrWhite);
-   CreateButton(BTN_CANCEL_OPP,    25,  276, btnFullW, 35, "Cancel Opposite: ON", C'34,139,34', clrWhite);
-   CreateButton(BTN_SPIKE_GUARD,   25,  318, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
-   CreateButton(BTN_CALC_LOT,      25,  360, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
+   CreateButton(BTN_SPIKE_GUARD,   25,  276, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
+   CreateButton(BTN_ANTI_WHIPSAW,  25,  318, btnFullW, 35, "Anti-Whipsaw: ON",  C'180,50,180', clrWhite);
+   CreateButton(BTN_AUTO_CLOSE,    25,  360, btnFullW, 35, "Auto-Close: ON",    C'255,140,0', clrWhite);
+   CreateButton(BTN_CALC_LOT,      25,  402, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
 
    //--- Info labels
-   CreateLabel(LABEL_LOT_INFO,      25, 405, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
-   CreateLabel(LABEL_MARGIN_INFO,   25, 428, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
-   CreateLabel(LABEL_CALC_LOT,      25, 448, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
-   CreateLabel(LABEL_COUNTDOWN,     25, 473, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
-   CreateLabel(LABEL_TRAILING_INFO, 25, 503, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
-   CreateLabel(LABEL_SPIKE_INFO,    25, 528, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
+   CreateLabel(LABEL_LOT_INFO,      25, 447, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
+   CreateLabel(LABEL_MARGIN_INFO,   25, 470, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
+   CreateLabel(LABEL_CALC_LOT,      25, 490, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
+   CreateLabel(LABEL_COUNTDOWN,     25, 515, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
+   CreateLabel(LABEL_TRAILING_INFO, 25, 545, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
+   CreateLabel(LABEL_SPIKE_INFO,    25, 570, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
+   CreateLabel(LABEL_AW_INFO,       25, 595, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
 
    //--- Parameters section
-   CreateLabel(LABEL_PARAMS, 25, 558, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
+   CreateLabel(LABEL_PARAMS, 25, 623, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
 
-   CreateLabel(LABEL_POINTS, 25, 580,
-      StringFormat("Stop: B%d/S%d | SL: %d (Emg: %d)", BuyStopPoints, SellStopPoints, SL_Points, EmergencySL_Points),
+   CreateLabel(LABEL_POINTS, 25, 645,
+      StringFormat("Stop: B%d/S%d | SL: %d", BuyStopPoints, SellStopPoints, SL_Points),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TP_INFO, 25, 600,
+   CreateLabel(LABEL_TP_INFO, 25, 665,
       StringFormat("TP#1: %d | TP#2: %d | Gap: %d", TP_Points_Order1, TP_Points_Order2, Order2GapPoints),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL1, 25, 620,
+   CreateLabel(LABEL_TRAIL1, 25, 685,
       StringFormat("Trail#1: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_1, TrailingStepPoints_1, TrailingDistancePoints_1),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL2, 25, 640,
+   CreateLabel(LABEL_TRAIL2, 25, 705,
       StringFormat("Trail#2: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_2, TrailingStepPoints_2, TrailingDistancePoints_2),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_NEWS_TIME, 25, 660,
+   CreateLabel(LABEL_NEWS_TIME, 25, 683,
       StringFormat("News: %02d:%02d (%s)", NewsHour, NewsMinute, GetTimezoneString()),
       C'255,200,0', 10, "Arial");
 
-   CreateLabel(LABEL_SPIKE_PARAMS, 25, 680,
+   CreateLabel(LABEL_SPIKE_PARAMS, 25, 703,
       StringFormat("Spike: Thr %d | Widen %d | %dm before",
                    SpikeThresholdPoints, SpikeWidenPoints, SpikeGuardMinutesBefore),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_VERSION, 25, 705,
-      StringFormat("v%s | Build %d", EA_VERSION, EA_BUILD),
+   CreateLabel(LABEL_VERSION, 25, 733,
+      StringFormat("v%s | Build %d | Anti-WS: %s", EA_VERSION, EA_BUILD,
+                   EnableAntiWhipsaw ? "ON" : "OFF"),
       C'80,80,100', 9, "Arial");
 }
 
@@ -1662,19 +2115,29 @@ void UpdateButtonStates()
    ObjectSetInteger(0, BTN_COUNTDOWN, OBJPROP_BGCOLOR, bg);
    ObjectSetInteger(0, BTN_COUNTDOWN, OBJPROP_BORDER_COLOR, bg);
 
-   //--- Cancel Opposite
-   text = "Cancel Opposite: " + (cancelOppositePendingEnabled ? "ON" : "OFF");
-   bg   = cancelOppositePendingEnabled ? C'34,139,34' : C'80,80,80';
-   ObjectSetString(0, BTN_CANCEL_OPP, OBJPROP_TEXT, text);
-   ObjectSetInteger(0, BTN_CANCEL_OPP, OBJPROP_BGCOLOR, bg);
-   ObjectSetInteger(0, BTN_CANCEL_OPP, OBJPROP_BORDER_COLOR, bg);
-
    //--- Spike Guard
    text = "Spike Guard: " + (spikeGuardEnabled ? "ON" : "OFF");
    bg   = spikeGuardEnabled ? C'178,102,0' : C'80,80,80';
    ObjectSetString(0, BTN_SPIKE_GUARD, OBJPROP_TEXT, text);
    ObjectSetInteger(0, BTN_SPIKE_GUARD, OBJPROP_BGCOLOR, bg);
    ObjectSetInteger(0, BTN_SPIKE_GUARD, OBJPROP_BORDER_COLOR, bg);
+
+   //--- Anti-Whipsaw
+   string awText = "Anti-Whipsaw: " + (EnableAntiWhipsaw ? "ON" : "OFF");
+   if(EnableAntiWhipsaw && awaitingCancelConfirm)
+      awText = "Anti-WS: CONFIRMING";
+   color awBg = EnableAntiWhipsaw ? C'180,50,180' : C'80,80,80';
+   if(awaitingCancelConfirm) awBg = C'255,140,0';
+   ObjectSetString(0, BTN_ANTI_WHIPSAW, OBJPROP_TEXT, awText);
+   ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BGCOLOR, awBg);
+   ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BORDER_COLOR, awBg);
+   //--- Auto-Close
+   string acText = "Auto-Close: " + (uiEnableSmartCutLoss ? "ON" : "OFF");
+   color acBg = uiEnableSmartCutLoss ? C'255,140,0' : C'80,80,80';
+   ObjectSetString(0, BTN_AUTO_CLOSE, OBJPROP_TEXT, acText);
+   ObjectSetInteger(0, BTN_AUTO_CLOSE, OBJPROP_BGCOLOR, acBg);
+   ObjectSetInteger(0, BTN_AUTO_CLOSE, OBJPROP_BORDER_COLOR, acBg);
+
 
    //--- Open button
    if(ordersOpened)
@@ -1732,9 +2195,9 @@ void DeleteUI()
    string objs[] = {
       PANEL_NAME, HEADER_LABEL, LABEL_STATUS, LABEL_LICENSE,
       BTN_OPEN, BTN_CLOSE, BTN_PRICE_TRACK, BTN_TRAILING_STOP,
-      BTN_COUNTDOWN, BTN_CANCEL_OPP, BTN_SPIKE_GUARD, BTN_CALC_LOT,
+      BTN_COUNTDOWN, BTN_SPIKE_GUARD, BTN_ANTI_WHIPSAW, BTN_AUTO_CLOSE, BTN_CALC_LOT,
       LABEL_LOT_INFO, LABEL_MARGIN_INFO, LABEL_CALC_LOT,
-      LABEL_COUNTDOWN, LABEL_TRAILING_INFO, LABEL_SPIKE_INFO,
+      LABEL_COUNTDOWN, LABEL_TRAILING_INFO, LABEL_SPIKE_INFO, LABEL_AW_INFO,
       LABEL_PARAMS, LABEL_POINTS, LABEL_TP_INFO,
       LABEL_TRAIL1, LABEL_TRAIL2, LABEL_NEWS_TIME,
       LABEL_SPIKE_PARAMS, LABEL_VERSION
