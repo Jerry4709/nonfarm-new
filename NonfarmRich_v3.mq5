@@ -2050,7 +2050,7 @@ void CreateUI()
    ObjectSetInteger(0, PANEL_NAME, OBJPROP_BORDER_COLOR, C'60,60,80');
 
    //--- Header
-   CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v3.4", C'0,200,255', 16, "Arial Bold");
+   CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v" + EA_VERSION, C'0,200,255', 16, "Arial Bold");
 
    //--- Status
    CreateLabel(LABEL_MODE, 25, 50, "Mode: ", C'255,215,0', 14, "Arial Bold");
@@ -2205,6 +2205,7 @@ void UpdateButtonStates()
    else if(ActiveTradeMode == MODE_SELL_STOP_ONLY) modeText = "Mode: Sell Stop Only";
    else if(ActiveTradeMode == MODE_MARKET_BUY) modeText = "Mode: Market Buy Only";
    else if(ActiveTradeMode == MODE_MARKET_SELL) modeText = "Mode: Market Sell Only";
+   else modeText = "Mode: STANDARD (Straddle)";
    
    ObjectSetString(0, LABEL_MODE, OBJPROP_TEXT, modeText);
    
