@@ -55,26 +55,26 @@ input group   "Auto-Update"
 input bool    EnableAutoUpdate   = true;      // Check for updates on startup
 
 //--- Pending Orders
-input group   "Pending Orders"
+input group   "--- ⚠️ PENDING MODE ONLY (Modes 1,2,3) ---"
 input int     BuyStopPoints      = 3000;     // Buy Stop distance (points)
 input int     SellStopPoints     = 3000;     // Sell Stop distance (points)
 input int     SL_Points          = 0;        // Stop Loss (0 = disabled)
 input int     Order2GapPoints    = 10;       // Extra gap for order #2
 
 //--- Take Profit
-input group   "Take Profit Settings"
+input group   "--- ⚙️ TAKE PROFIT SETTINGS (All Modes) ---"
 input int     TP_Points_Order1   = 600;      // TP for Order #1 (points)
 input int     TP_Points_Order2   = 600;      // TP for Order #2 (points)
 
 //--- Lot Size
-input group   "Lot Size Settings"
+input group   "--- ⚙️ LOT SIZE SETTINGS (All Modes) ---"
 input double  LotSize_Order1     = 0.1;      // Lot size order #1
 input double  LotSize_Order2     = 0.1;      // Lot size order #2
 input bool    UseCalculatedLots  = false;    // Use calculated lots from margin
 input double  RiskPercentage     = 5.0;      // Risk % for lot calculation
 
 //--- Trailing Stop Order 1
-input group   "Trailing Stop - Order 1"
+input group   "--- ⚙️ TRAILING STOP (All Modes) ---"
 input int     TrailingStartPoints_1    = 300;  // Start when profit >= (points)
 input int     TrailingStepPoints_1     = 100;  // Move SL by (points)
 input int     TrailingDistancePoints_1 = 50;   // Keep SL distance from price
@@ -94,7 +94,7 @@ enum ENUM_NEWS_MODE
    NEWS_AUTO_ANY_HIGH   // Auto Detect: Any US High Impact (Backtest/Live)
 };
 
-input group   "News Countdown"
+input group   "--- ⚙️ NEWS COUNTDOWN (All Modes) ---"
 input ENUM_NEWS_MODE NewsMode = NEWS_AUTO_NFP;
 input ENUM_TIMEZONE_CITY Timezone = LONDON;
 input int     NewsHour                      = 9;
@@ -103,7 +103,7 @@ input int     OpenBeforeSeconds             = 30;   // Open pending X sec before
 input int     ClosePriceTrackBeforeSeconds  = 20;   // Disable Price Track X sec before
 
 //--- Spike Guard
-input group   "Spike Guard (Pre-News Protection)"
+input group   "--- ⚠️ PENDING MODE ONLY: Spike Guard ---"
 input bool    DefaultSpikeGuardOn    = true;        // Default: Spike Guard ON
 input int     SpikeGuardMinutesBefore = 5;          // Active X minutes before news
 input int     SpikeThresholdPoints   = 300;         // Spike detection threshold (points)
@@ -112,7 +112,7 @@ input ENUM_SPIKE_ACTION SpikeAction  = SPIKE_BOTH;  // Action when spike detecte
 input int     SpikeWidenPoints       = 1000;        // Widen distance (points)
 
 //--- Anti-Whipsaw (Fake Spike Protection)
-input group   "Anti-Whipsaw (Fake Spike Protection)"
+input group   "--- ⚠️ STRADDLE MODE ONLY: Anti-Whipsaw ---"
 input bool    EnableAntiWhipsaw       = true;        // Enable Anti-Whipsaw System
 input bool    EnableDelayedCancel     = true;        // Don't cancel opposite immediately
 input int     DelayedCancelSec        = 5;           // Wait X sec before canceling opposite
@@ -120,7 +120,7 @@ input int     BreakevenAfterExecPts   = 30;          // Near-breakeven SL buffer
 input int     ConfirmDirectionPts     = 200;         // Confirm when price > X pts from entry
 
 //--- Expert Settings
-input group   "Expert Advisor Settings"
+input group   "--- ⚙️ GENERAL SETTINGS (All Modes) ---"
 input ulong   MagicNumber_1      = 1111;
 input ulong   MagicNumber_2      = 2222;
 
@@ -2000,55 +2000,55 @@ void CreateUI()
    CreateLabel(LABEL_STATUS, 25, 75, "Status: Ready", C'0,255,100', 12, "Arial Bold");
 
    //--- License
-   CreateLabel(LABEL_LICENSE, 25, 75, "License: Checking...", C'200,200,200', 10, "Arial");
+   CreateLabel(LABEL_LICENSE, 25, 95, "License: Checking...", C'200,200,200', 10, "Arial");
 
    //--- Buttons
    int btnW = 170, btnH = 40, btnFullW = 365;
 
-   CreateButton(BTN_OPEN,          25,  125, btnW, btnH, "Open Orders",        C'34,139,34',  clrWhite);
-   CreateButton(BTN_CLOSE,         205, 125, btnW, btnH, "Close All",          C'220,20,60',  clrWhite);
-   CreateButton(BTN_PRICE_TRACK,   25,  175, btnFullW, 35, "Price Track: ON",   C'34,139,34',  clrWhite);
-   CreateButton(BTN_TRAILING_STOP, 25,  217, btnFullW, 35, "Trailing Stop: ON", C'34,139,34',  clrWhite);
-   CreateButton(BTN_COUNTDOWN,     25,  259, btnFullW, 35, "Countdown: ON",     C'70,130,180', clrWhite);
-   CreateButton(BTN_SPIKE_GUARD,   25,  301, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
-   CreateButton(BTN_ANTI_WHIPSAW,  25,  343, btnFullW, 35, "Anti-Whipsaw: ON",  C'180,50,180', clrWhite);
-      CreateButton(BTN_CALC_LOT,      25,  385, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
+   CreateButton(BTN_OPEN,          25,  130, btnW, btnH, "Open Orders",        C'34,139,34',  clrWhite);
+   CreateButton(BTN_CLOSE,         205, 130, btnW, btnH, "Close All",          C'220,20,60',  clrWhite);
+   CreateButton(BTN_PRICE_TRACK,   25,  180, btnFullW, 35, "Price Track: ON",   C'34,139,34',  clrWhite);
+   CreateButton(BTN_TRAILING_STOP, 25,  222, btnFullW, 35, "Trailing Stop: ON", C'34,139,34',  clrWhite);
+   CreateButton(BTN_COUNTDOWN,     25,  264, btnFullW, 35, "Countdown: ON",     C'70,130,180', clrWhite);
+   CreateButton(BTN_SPIKE_GUARD,   25,  306, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
+   CreateButton(BTN_ANTI_WHIPSAW,  25,  348, btnFullW, 35, "Anti-Whipsaw: ON",  C'180,50,180', clrWhite);
+      CreateButton(BTN_CALC_LOT,      25,  390, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
 
    //--- Info labels
-   CreateLabel(LABEL_LOT_INFO,      25, 430, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
-   CreateLabel(LABEL_MARGIN_INFO,   25, 453, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
-   CreateLabel(LABEL_CALC_LOT,      25, 473, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
-   CreateLabel(LABEL_COUNTDOWN,     25, 498, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
-   CreateLabel(LABEL_TRAILING_INFO, 25, 528, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
-   CreateLabel(LABEL_SPIKE_INFO,    25, 553, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
-   CreateLabel(LABEL_AW_INFO,       25, 578, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
+   CreateLabel(LABEL_LOT_INFO,      25, 435, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
+   CreateLabel(LABEL_MARGIN_INFO,   25, 458, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
+   CreateLabel(LABEL_CALC_LOT,      25, 478, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
+   CreateLabel(LABEL_COUNTDOWN,     25, 503, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
+   CreateLabel(LABEL_TRAILING_INFO, 25, 533, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
+   CreateLabel(LABEL_SPIKE_INFO,    25, 558, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
+   CreateLabel(LABEL_AW_INFO,       25, 583, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
 
    //--- Parameters section
-   CreateLabel(LABEL_PARAMS, 25, 606, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
+   CreateLabel(LABEL_PARAMS, 25, 611, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
 
-   CreateLabel(LABEL_POINTS, 25, 628,
+   CreateLabel(LABEL_POINTS, 25, 633,
       StringFormat("Stop: B%d/S%d | SL: %d", BuyStopPoints, SellStopPoints, SL_Points),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TP_INFO, 25, 648,
+   CreateLabel(LABEL_TP_INFO, 25, 653,
       StringFormat("TP#1: %d | TP#2: %d | Gap: %d", TP_Points_Order1, TP_Points_Order2, Order2GapPoints),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL1, 25, 668,
+   CreateLabel(LABEL_TRAIL1, 25, 673,
       StringFormat("Trail#1: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_1, TrailingStepPoints_1, TrailingDistancePoints_1),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL2, 25, 688,
+   CreateLabel(LABEL_TRAIL2, 25, 693,
       StringFormat("Trail#2: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_2, TrailingStepPoints_2, TrailingDistancePoints_2),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_NEWS_TIME, 25, 708,
+   CreateLabel(LABEL_NEWS_TIME, 25, 713,
       StringFormat("News: %02d:%02d (%s)", NewsHour, NewsMinute, GetTimezoneString()),
       C'255,200,0', 10, "Arial");
 
-   CreateLabel(LABEL_SPIKE_PARAMS, 25, 728,
+   CreateLabel(LABEL_SPIKE_PARAMS, 25, 733,
       StringFormat("Spike: Thr %d | Widen %d | %dm before",
                    SpikeThresholdPoints, SpikeWidenPoints, SpikeGuardMinutesBefore),
       C'140,140,160', 10, "Arial");
