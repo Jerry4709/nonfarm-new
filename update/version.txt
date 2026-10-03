@@ -1,4 +1,4 @@
-﻿VERSION=4.8.0
-BUILD=20261012
+﻿VERSION=4.9.0
+BUILD=20261013
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v4.8.0: Enabled Dynamic Backtest Mode Simulation. You can now test any mode in Strategy Tester by simply typing its name (e.g. MARKET_BUY or BUY_STOP) into the LicenseKey input box!
+CHANGELOG=v4.9.0: Fixed MT5 Strategy Tester TimeGMT bug. Added Backtest_Broker_GMT input parameter so that your News Hour inputs match your chart time exactly when testing.

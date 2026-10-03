@@ -11,8 +11,8 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "4.8.0"
-#define EA_BUILD         20261012
+#define EA_VERSION       "4.9.0"
+#define EA_BUILD         20261013
 
 //--- Enums (must be declared before inputs)
 enum ENUM_TIMEZONE_CITY
@@ -127,9 +127,10 @@ enum ENUM_NEWS_MODE
 
 input group   "--- ⚙️ NEWS COUNTDOWN (All Modes) ---"
 input ENUM_NEWS_MODE NewsMode = NEWS_AUTO_NFP;
-input ENUM_TIMEZONE_CITY Timezone = LONDON;
-input int     NewsHour                      = 9;
+input ENUM_TIMEZONE_CITY Timezone = BANGKOK;
+input int     NewsHour                      = 19;
 input int     NewsMinute                    = 30;
+input int     Backtest_Broker_GMT           = 3;      // ⏳ [Backtest] Broker GMT Offset
 // (OpenBeforeSeconds is now separated by Mode)
 input int     ClosePriceTrackBeforeSeconds  = 20;   // Disable Price Track X sec before
 
@@ -1749,7 +1750,14 @@ void UpdateTrailingInfo()
 //+------------------------------------------------------------------+
 datetime GetCurrentTimeInZone()
 {
-   return TimeGMT() + (GetTimezoneOffset() * 3600);
+   datetime gmt = TimeGMT();
+   if(MQLInfoInteger(MQL_TESTER))
+   {
+      // MT5 Tester bug: TimeGMT() often equals TimeCurrent(). Fix it using the backtest offset.
+      if(TimeGMT() == TimeCurrent())
+         gmt = TimeCurrent() - (Backtest_Broker_GMT * 3600);
+   }
+   return gmt + (GetTimezoneOffset() * 3600);
 }
 
 datetime autoNewsServerTime = 0;
@@ -1825,6 +1833,10 @@ datetime GetNextAutoNewsTimeServer()
 datetime GetNextNewsTimeManualFallback()
 {
    datetime now_gmt = TimeGMT();
+   if(MQLInfoInteger(MQL_TESTER) && TimeGMT() == TimeCurrent())
+   {
+      now_gmt = TimeCurrent() - (Backtest_Broker_GMT * 3600);
+   }
    long tz_offset_sec = (long)GetTimezoneOffset() * 3600;
    datetime now_tz = (datetime)(now_gmt + tz_offset_sec);
    datetime today_start = (datetime)(now_tz - (now_tz % 86400));
