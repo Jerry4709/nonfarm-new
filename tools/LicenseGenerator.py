@@ -108,10 +108,10 @@ entry_acc.insert(0, "ANY")
 
 # Generate Button
 
-tk.Label(root, text="Trade Mode:").grid(row=4, column=0, padx=10, pady=10, sticky='e')
-combo_mode = ttk.Combobox(root, values=["MODE_STANDARD (Pendings)", "MODE_BUY_STOP_ONLY", "MODE_SELL_STOP_ONLY", "MODE_MARKET_BUY", "MODE_MARKET_SELL"], state="readonly", width=27)
+tk.Label(frame, text="Trade Mode:").grid(row=4, column=0, sticky="w", pady=5)
+combo_mode = ttk.Combobox(frame, values=["MODE_STANDARD (Pendings)", "MODE_BUY_STOP_ONLY", "MODE_SELL_STOP_ONLY", "MODE_MARKET_BUY", "MODE_MARKET_SELL"], state="readonly", width=27)
 combo_mode.current(0)
-combo_mode.grid(row=4, column=1, padx=10, pady=10)
+combo_mode.grid(row=4, column=1, pady=5)
 
 btn_generate = tk.Button(root, text="Generate & Add to Sheet", font=("Arial", 10, "bold"), bg="#4CAF50", fg="white", command=generate_key, pady=5)
 btn_generate.pack(fill=tk.X, pady=(20, 10))
