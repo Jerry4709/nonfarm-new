@@ -549,6 +549,10 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 //+------------------------------------------------------------------+
 //| DLL IMPORTS                                                      |
 //+------------------------------------------------------------------+
+#import "urlmon.dll"
+int URLDownloadToFileW(int pCaller, string szURL, string szFileName, int dwReserved, int lpfnCB);
+#import
+
 #import "wininet.dll"
 long InternetOpenW(string agent, int accessType, string proxyName, string proxyBypass, uint flags);
 long InternetOpenUrlW(long internetSession, string url, string headers, int headersLength, uint flags, long context);
@@ -703,26 +707,20 @@ void CheckForUpdates()
       if(MessageBox("New update available! (v" + remoteVersion + ")\n\n" + changelog + "\n\nDo you want to download it now?",
                     "NonfarmRich Update", MB_YESNO | MB_ICONINFORMATION) == IDYES)
       {
-         if(DownloadUpdate(downloadUrl))
+         string dest = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Experts\\NonfarmRich_v" + remoteVersion + ".ex5";
+         if(DownloadUpdate(downloadUrl, dest))
          {
-            string src = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Files\\NonfarmRich_v3_update.ex5";
-            string dest = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Experts\\NonfarmRich_v" + remoteVersion + ".ex5";
-            
-            if(CopyFileW(src, dest, 0) != 0)
-            {
                Alert("🔥 NonfarmRich EA Update SUCCESS!\n\n",
                      "Current: v", EA_VERSION, " -> New: v", remoteVersion, "\n",
                      "Changes: ", changelog, "\n\n",
                      "✅ The new version has been auto-installed to your Experts folder!\n",
                      "Please right-click in Navigator and click 'Refresh', then attach the new version to your chart.");
-            }
-            else
-            {
-               Alert("Update Downloaded to Files folder!\n\n",
-                     "Current: v", EA_VERSION, " -> New: v", remoteVersion, "\n\n",
-                     "Auto-copy to Experts failed. Please manually move it from:\n",
-                     "MQL5\\Files\\NonfarmRich_v3_update.ex5\nto your Experts folder.");
-            }
+         }
+         else
+         {
+               Alert("❌ Auto-Update Failed!\n\n",
+                     "Could not download the file to the Experts folder.\n",
+                     "Please check your internet connection or anti-virus.");
          }
       }
    }
@@ -749,39 +747,21 @@ string ParseUpdateValue(string &content, string key)
    return value;
 }
 
-bool DownloadUpdate(string url)
+bool DownloadUpdate(string url, string destPath)
 {
    if(!TerminalInfoInteger(TERMINAL_DLLS_ALLOWED)) return false;
    
-   long hInternet = InternetOpenW("MT5", 0, NULL, NULL, 0);
-   if(hInternet == 0) return false;
-   
-   long hUrl = InternetOpenUrlW(hInternet, url, NULL, 0, 0x80000000 | 0x00800000, 0);
-   if(hUrl == 0) { InternetCloseHandle(hInternet); return false; }
-   
-   int fileHandle = FileOpen("NonfarmRich_v3_update.ex5", FILE_WRITE | FILE_BIN);
-   if(fileHandle == INVALID_HANDLE)
+   int res = URLDownloadToFileW(0, url, destPath, 0, 0);
+   if(res == 0)
    {
-      Print("Cannot create update file: ", GetLastError());
-      InternetCloseHandle(hUrl);
-      InternetCloseHandle(hInternet);
+      Print("Update downloaded directly to: ", destPath);
+      return true;
+   }
+   else
+   {
+      Print("URLDownloadToFileW failed with error: ", res);
       return false;
    }
-   
-   uchar buffer[1024];
-   int bytesRead = 0;
-   
-   while(InternetReadFile(hUrl, buffer, 1024, bytesRead) != 0 && bytesRead > 0)
-   {
-      FileWriteArray(fileHandle, buffer, 0, bytesRead);
-   }
-   
-   FileClose(fileHandle);
-   InternetCloseHandle(hUrl);
-   InternetCloseHandle(hInternet);
-   
-   Print("Update downloaded: MQL5\\Files\\NonfarmRich_v3_update.ex5");
-   return true;
 }
 //+------------------------------------------------------------------+
 //| HELPER FUNCTIONS                                                  |

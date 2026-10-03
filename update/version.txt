@@ -1,4 +1,4 @@
-﻿VERSION=4.2.0
-BUILD=20261006
+﻿VERSION=4.3.0
+BUILD=20261007
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v4.2.0: Added separated execution timers for Standard, Single, and Market modes.
+CHANGELOG=v4.3.0: Fixed MQL5 sandbox FileOpen restriction by utilizing urlmon.dll to download directly to the Experts folder. Auto-update should now be completely flawless!
