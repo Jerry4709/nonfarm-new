@@ -11,8 +11,8 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "4.5.0"
-#define EA_BUILD         20261009
+#define EA_VERSION       "4.6.0"
+#define EA_BUILD         20261010
 
 //--- Enums (must be declared before inputs)
 enum ENUM_TIMEZONE_CITY
