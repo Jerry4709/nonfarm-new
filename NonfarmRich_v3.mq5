@@ -11,8 +11,8 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "4.6.0"
-#define EA_BUILD         20261010
+#define EA_VERSION       "4.7.0"
+#define EA_BUILD         20261011
 
 //--- Enums (must be declared before inputs)
 enum ENUM_TIMEZONE_CITY
@@ -72,6 +72,8 @@ input group   "========== 🔵 โหมด STOP ดักฝั่งเดี�
 input int     Single_OpenBeforeSec   = 30;       // วาง Pending ก่อนข่าว (วินาที)
 input int     Single_StopPoints      = 3000;     // Stop distance (points)
 input int     Single_SL_Points       = 0;        // Stop Loss (0 = disabled)
+input bool    Single_EnableAntiWhipsaw       = true;        // Enable Breakeven Buffer (Anti-Whipsaw)
+input int     Single_BreakevenAfterExecPts   = 30;          // Near-breakeven SL buffer (points)
 
 //--- โหมด MARKET
 input group   "========== 🔴 โหมด MARKET (ยิงสดทันที) =========="
@@ -309,10 +311,10 @@ int OnInit()
       SellStopPoints        = Single_StopPoints;
       SL_Points             = Single_SL_Points;
       Order2GapPoints       = 0;
-      EnableAntiWhipsaw     = false;
+      EnableAntiWhipsaw     = Single_EnableAntiWhipsaw;
       EnableDelayedCancel   = false;
       DelayedCancelSec      = 0;
-      BreakevenAfterExecPts = 0;
+      BreakevenAfterExecPts = Single_BreakevenAfterExecPts;
       ConfirmDirectionPts   = 0;
    }
    else if(ActiveTradeMode == MODE_MARKET_BUY || ActiveTradeMode == MODE_MARKET_SELL)
@@ -322,10 +324,10 @@ int OnInit()
       SellStopPoints        = 0;
       SL_Points             = Market_SL_Points;
       Order2GapPoints       = 0;
-      EnableAntiWhipsaw     = false;
+      EnableAntiWhipsaw     = Single_EnableAntiWhipsaw;
       EnableDelayedCancel   = false;
       DelayedCancelSec      = 0;
-      BreakevenAfterExecPts = 0;
+      BreakevenAfterExecPts = Single_BreakevenAfterExecPts;
       ConfirmDirectionPts   = 0;
    }
 
@@ -501,21 +503,11 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
    }
    else if(sparam == BTN_ANTI_WHIPSAW)
    {
-      if(EnableAntiWhipsaw)
+      if(ActiveTradeMode != MODE_MARKET_BUY && ActiveTradeMode != MODE_MARKET_SELL)
       {
-         // Toggle freeze/delayed cancel at runtime is not meaningful
-         // Show info instead
-         Alert(StringFormat("Anti-Whipsaw Settings:\n" +
-            "Delayed Cancel: %s (%d sec)\n" +
-            "Breakeven SL Buffer: %d pts\n" +
-            "Confirm Direction: %d pts\n\n" +
-            "When triggered: Set near-breakeven SL,\n" +
-            "keep opposite pending, wait to confirm.",
-            EnableDelayedCancel ? "ON" : "OFF", DelayedCancelSec,
-            BreakevenAfterExecPts, ConfirmDirectionPts));
+         EnableAntiWhipsaw = !EnableAntiWhipsaw;
+         UpdateButtonStates();
       }
-      else
-         Alert("Anti-Whipsaw is DISABLED. Set EnableAntiWhipsaw=true in inputs.");
       ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_STATE, 0);
    }
    else if(sparam == BTN_CALC_LOT)
@@ -2252,14 +2244,17 @@ void UpdateButtonStates()
    ObjectSetInteger(0, BTN_SPIKE_GUARD, OBJPROP_BORDER_COLOR, bg);
 
    //--- Anti-Whipsaw
-   string awText = "Anti-Whipsaw: " + (EnableAntiWhipsaw ? "ON" : "OFF");
-   if(EnableAntiWhipsaw && awaitingCancelConfirm)
-      awText = "Anti-WS: CONFIRMING";
-   color awBg = EnableAntiWhipsaw ? C'180,50,180' : C'80,80,80';
-   if(awaitingCancelConfirm) awBg = C'255,140,0';
-   ObjectSetString(0, BTN_ANTI_WHIPSAW, OBJPROP_TEXT, awText);
-   ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BGCOLOR, awBg);
-   ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BORDER_COLOR, awBg);//--- Open button
+   if(ActiveTradeMode != MODE_MARKET_BUY && ActiveTradeMode != MODE_MARKET_SELL)
+   {
+      string awText = "Anti-Whipsaw: " + (EnableAntiWhipsaw ? "ON" : "OFF");
+      if(EnableAntiWhipsaw && awaitingCancelConfirm)
+         awText = "Anti-WS: CONFIRMING";
+      color awBg = EnableAntiWhipsaw ? C'180,50,180' : C'80,80,80';
+      if(awaitingCancelConfirm) awBg = C'255,140,0';
+      ObjectSetString(0, BTN_ANTI_WHIPSAW, OBJPROP_TEXT, awText);
+      ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BGCOLOR, awBg);
+      ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BORDER_COLOR, awBg);
+   }//--- Open button
    if(ordersOpened)
    {
       ObjectSetString(0, BTN_OPEN, OBJPROP_TEXT, "Orders Active");

@@ -1,4 +1,4 @@
-﻿VERSION=4.6.0
-BUILD=20261010
+﻿VERSION=4.7.0
+BUILD=20261011
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v4.6.0: Forced cleanup of lingering UI objects to fix Mode text z-order bug completely.
+CHANGELOG=v4.7.0: 1. Made Anti-Whipsaw togglable directly from the UI for convenience. 2. Upgraded Anti-Whipsaw logic to fully support Single Stop modes (Buy Stop / Sell Stop) so they can now benefit from the Breakeven buffer capital protection!
