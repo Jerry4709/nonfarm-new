@@ -492,6 +492,10 @@ int  InternetReadFile(long file, uchar &buffer[], int numBytesToRead, int &numbe
 int  InternetCloseHandle(long inet);
 #import
 
+#import "kernel32.dll"
+int CopyFileW(string lpExistingFileName, string lpNewFileName, int bFailIfExists);
+#import
+
 //+------------------------------------------------------------------+
 //| URL & String Obfuscation (XOR Encrypted)                         |
 //+------------------------------------------------------------------+
@@ -637,11 +641,24 @@ void CheckForUpdates()
       {
          if(DownloadUpdate(downloadUrl))
          {
-            Alert("NonfarmRich EA Update Downloaded!\n\n",
-                  "Current: v", EA_VERSION, " -> New: v", remoteVersion, "\n",
-                  "Changes: ", changelog, "\n\n",
-                  "File saved to: MQL5\\Files\\NonfarmRich_v3_update.ex5\n",
-                  "Copy to MQL5\\Experts\\ and recompile to apply.");
+            string src = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Files\\NonfarmRich_v3_update.ex5";
+            string dest = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Experts\\NonfarmRich_v" + remoteVersion + ".ex5";
+            
+            if(CopyFileW(src, dest, 0) != 0)
+            {
+               Alert("🔥 NonfarmRich EA Update SUCCESS!\n\n",
+                     "Current: v", EA_VERSION, " -> New: v", remoteVersion, "\n",
+                     "Changes: ", changelog, "\n\n",
+                     "✅ The new version has been auto-installed to your Experts folder!\n",
+                     "Please right-click in Navigator and click 'Refresh', then attach the new version to your chart.");
+            }
+            else
+            {
+               Alert("Update Downloaded to Files folder!\n\n",
+                     "Current: v", EA_VERSION, " -> New: v", remoteVersion, "\n\n",
+                     "Auto-copy to Experts failed. Please manually move it from:\n",
+                     "MQL5\\Files\\NonfarmRich_v3_update.ex5\nto your Experts folder.");
+            }
          }
       }
    }
