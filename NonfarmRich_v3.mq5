@@ -11,8 +11,8 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "4.7.0"
-#define EA_BUILD         20261011
+#define EA_VERSION       "4.8.0"
+#define EA_BUILD         20261012
 
 //--- Enums (must be declared before inputs)
 enum ENUM_TIMEZONE_CITY
@@ -628,7 +628,19 @@ bool HttpGetDLL(string url, string &outContent)
 bool ValidateLicenseKey(string key)
 {
    if(MQLInfoInteger(MQL_TESTER) || MQLInfoInteger(MQL_OPTIMIZATION))
+   {
+      string upperKey = key;
+      StringToUpper(upperKey);
+      
+      if(StringFind(upperKey, "BUY_STOP") >= 0) ActiveTradeMode = MODE_BUY_STOP_ONLY;
+      else if(StringFind(upperKey, "SELL_STOP") >= 0) ActiveTradeMode = MODE_SELL_STOP_ONLY;
+      else if(StringFind(upperKey, "MARKET_BUY") >= 0) ActiveTradeMode = MODE_MARKET_BUY;
+      else if(StringFind(upperKey, "MARKET_SELL") >= 0) ActiveTradeMode = MODE_MARKET_SELL;
+      else ActiveTradeMode = MODE_STANDARD;
+      
+      Print("Backtest Mode Initialized via Key: ", EnumToString(ActiveTradeMode));
       return true;
+   }
 
    Print("Checking license online with Google Sheets (DLL)...");
    
