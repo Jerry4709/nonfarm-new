@@ -50,7 +50,8 @@ def generate_key():
             "key": license_key,
             "user": user,
             "broker": broker if broker else "ANY",
-            "acc": acc if acc else "ANY"
+            "acc": acc if acc else "ANY",
+            "mode": mode_val
         }
         query_string = urllib.parse.urlencode(params)
         url = f"{GAS_URL}?{query_string}"
