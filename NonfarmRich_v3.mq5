@@ -185,6 +185,7 @@ string updateInfo = "";
 #define PANEL_NAME          "NR_Panel"
 #define HEADER_LABEL        "NR_Header"
 #define LABEL_STATUS        "NR_Status"
+#define LABEL_MODE        "NR_Mode"
 #define LABEL_LICENSE       "NR_License"
 #define BTN_OPEN            "NR_BtnOpen"
 #define BTN_CLOSE           "NR_BtnClose"
@@ -2149,7 +2150,7 @@ void UpdateButtonStates()
       
       spikeGuardEnabled = false;
       priceTrackingEnabled = false;
-      EnableAntiWhipsaw = false;
+      
    }
 
    //--- Spike Guard
