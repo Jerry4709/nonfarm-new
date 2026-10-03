@@ -11,8 +11,8 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "4.4.0"
-#define EA_BUILD         20261008
+#define EA_VERSION       "4.5.0"
+#define EA_BUILD         20261009
 
 //--- Enums (must be declared before inputs)
 enum ENUM_TIMEZONE_CITY
@@ -549,8 +549,8 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
 //+------------------------------------------------------------------+
 //| DLL IMPORTS                                                      |
 //+------------------------------------------------------------------+
-#import "urlmon.dll"
-int URLDownloadToFileW(int pCaller, string szURL, string szFileName, int dwReserved, int lpfnCB);
+#import "kernel32.dll"
+int CopyFileW(string lpExistingFileName, string lpNewFileName, int bFailIfExists);
 #import
 
 #import "wininet.dll"
@@ -707,19 +707,30 @@ void CheckForUpdates()
       if(MessageBox("New update available! (v" + remoteVersion + ")\n\n" + changelog + "\n\nDo you want to download it now?",
                     "NonfarmRich Update", MB_YESNO | MB_ICONINFORMATION) == IDYES)
       {
-         string dest = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Experts\\NonfarmRich_v" + remoteVersion + ".ex5";
-         if(DownloadUpdate(downloadUrl, dest))
+         if(DownloadUpdate(downloadUrl))
          {
+            string src = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Files\\NonfarmRich_v3_update.bin";
+            string dest = TerminalInfoString(TERMINAL_DATA_PATH) + "\\MQL5\\Experts\\NonfarmRich_v" + remoteVersion + ".ex5";
+            
+            if(CopyFileW(src, dest, 0) != 0)
+            {
                Alert("🔥 NonfarmRich EA Update SUCCESS!\n\n",
                      "Current: v", EA_VERSION, " -> New: v", remoteVersion, "\n",
                      "Changes: ", changelog, "\n\n",
                      "✅ The new version has been auto-installed to your Experts folder!\n",
                      "Please right-click in Navigator and click 'Refresh', then attach the new version to your chart.");
+            }
+            else
+            {
+               Alert("❌ Auto-Update Failed!\n\n",
+                     "Could not copy the file from Files to Experts folder.\n",
+                     "Please check your antivirus or Windows permissions.");
+            }
          }
          else
          {
                Alert("❌ Auto-Update Failed!\n\n",
-                     "Could not download the file to the Experts folder.\n",
+                     "Could not download the file.\n",
                      "Please check your internet connection or anti-virus.");
          }
       }
@@ -747,21 +758,39 @@ string ParseUpdateValue(string &content, string key)
    return value;
 }
 
-bool DownloadUpdate(string url, string destPath)
+bool DownloadUpdate(string url)
 {
    if(!TerminalInfoInteger(TERMINAL_DLLS_ALLOWED)) return false;
    
-   int res = URLDownloadToFileW(0, url, destPath, 0, 0);
-   if(res == 0)
+   long hInternet = InternetOpenW("MT5", 0, NULL, NULL, 0);
+   if(hInternet == 0) return false;
+   
+   long hUrl = InternetOpenUrlW(hInternet, url, NULL, 0, 0x80000000 | 0x00800000, 0);
+   if(hUrl == 0) { InternetCloseHandle(hInternet); return false; }
+   
+   int fileHandle = FileOpen("NonfarmRich_v3_update.bin", FILE_WRITE | FILE_BIN);
+   if(fileHandle == INVALID_HANDLE)
    {
-      Print("Update downloaded directly to: ", destPath);
-      return true;
-   }
-   else
-   {
-      Print("URLDownloadToFileW failed with error: ", res);
+      Print("Cannot create update file: ", GetLastError());
+      InternetCloseHandle(hUrl);
+      InternetCloseHandle(hInternet);
       return false;
    }
+   
+   uchar buffer[1024];
+   int bytesRead = 0;
+   
+   while(InternetReadFile(hUrl, buffer, 1024, bytesRead) != 0 && bytesRead > 0)
+   {
+      FileWriteArray(fileHandle, buffer, 0, bytesRead);
+   }
+   
+   FileClose(fileHandle);
+   InternetCloseHandle(hUrl);
+   InternetCloseHandle(hInternet);
+   
+   Print("Update downloaded: MQL5\\Files\\NonfarmRich_v3_update.bin");
+   return true;
 }
 //+------------------------------------------------------------------+
 //| HELPER FUNCTIONS                                                  |

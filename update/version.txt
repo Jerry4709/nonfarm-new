@@ -1,4 +1,4 @@
-﻿VERSION=4.4.0
-BUILD=20261008
+﻿VERSION=4.5.0
+BUILD=20261009
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v4.4.0: Fixed UI rendering bug (Mode text was hiding behind the panel) and fully finalized all UI components.
+CHANGELOG=v4.5.0: Fixed DLL Access Violation crash on x64 MT5 by switching back to native wininet buffer streaming into a temporary .bin file, gracefully bypassing the MQL5 .ex5 FileOpen restriction!
