@@ -54,12 +54,37 @@ input string  LicenseKey        = "AUTO_LOAD"; // License Key (AUTO_LOAD to use 
 input group   "Auto-Update"
 input bool    EnableAutoUpdate   = true;      // Check for updates on startup
 
-//--- Pending Orders
-input group   "--- ⚠️ PENDING MODE ONLY (Modes 1,2,3) ---"
-input int     BuyStopPoints      = 3000;     // Buy Stop distance (points)
-input int     SellStopPoints     = 3000;     // Sell Stop distance (points)
-input int     SL_Points          = 0;        // Stop Loss (0 = disabled)
-input int     Order2GapPoints    = 10;       // Extra gap for order #2
+//--- โหมด STANDARD
+input group   "========== 🟢 โหมด STANDARD (ดัก 2 ฝั่ง) =========="
+input int     Std_BuyStopPoints      = 3000;     // Buy Stop distance (points)
+input int     Std_SellStopPoints     = 3000;     // Sell Stop distance (points)
+input int     Std_SL_Points          = 0;        // Stop Loss (0 = disabled)
+input int     Std_Order2GapPoints    = 10;       // Extra gap for order #2
+input bool    Std_EnableAntiWhipsaw       = true;        // Enable Anti-Whipsaw System
+input bool    Std_EnableDelayedCancel     = true;        // Don't cancel opposite immediately
+input int     Std_DelayedCancelSec        = 5;           // Wait X sec before canceling opposite
+input int     Std_BreakevenAfterExecPts   = 30;          // Near-breakeven SL buffer (points)
+input int     Std_ConfirmDirectionPts     = 200;         // Confirm when price > X pts from entry
+
+//--- โหมด SINGLE STOP
+input group   "========== 🔵 โหมด STOP ดักฝั่งเดียว (BUY หรือ SELL) =========="
+input int     Single_StopPoints      = 3000;     // Stop distance (points)
+input int     Single_SL_Points       = 0;        // Stop Loss (0 = disabled)
+
+//--- โหมด MARKET
+input group   "========== 🔴 โหมด MARKET (ยิงสดทันที) =========="
+input int     Market_SL_Points       = 0;        // Stop Loss (0 = disabled)
+
+//--- Global Shadow Variables for Active Settings
+int     BuyStopPoints;
+int     SellStopPoints;
+int     SL_Points;
+int     Order2GapPoints;
+bool    EnableAntiWhipsaw;
+bool    EnableDelayedCancel;
+int     DelayedCancelSec;
+int     BreakevenAfterExecPts;
+int     ConfirmDirectionPts;
 
 //--- Take Profit
 input group   "--- ⚙️ TAKE PROFIT SETTINGS (All Modes) ---"
@@ -111,13 +136,7 @@ input int     SpikeCheckPeriodSec    = 10;          // Check period (seconds)
 input ENUM_SPIKE_ACTION SpikeAction  = SPIKE_BOTH;  // Action when spike detected
 input int     SpikeWidenPoints       = 1000;        // Widen distance (points)
 
-//--- Anti-Whipsaw (Fake Spike Protection)
-input group   "--- ⚠️ STRADDLE MODE ONLY: Anti-Whipsaw ---"
-input bool    EnableAntiWhipsaw       = true;        // Enable Anti-Whipsaw System
-input bool    EnableDelayedCancel     = true;        // Don't cancel opposite immediately
-input int     DelayedCancelSec        = 5;           // Wait X sec before canceling opposite
-input int     BreakevenAfterExecPts   = 30;          // Near-breakeven SL buffer (points)
-input int     ConfirmDirectionPts     = 200;         // Confirm when price > X pts from entry
+// (Moved to Standard Mode Inputs)
 
 //--- Expert Settings
 input group   "--- ⚙️ GENERAL SETTINGS (All Modes) ---"
@@ -265,6 +284,44 @@ int OnInit()
 
    //--- Set runtime toggles from inputs
    spikeGuardEnabled = DefaultSpikeGuardOn;
+   //--- Dynamic Input Assignment based on Mode
+   if(ActiveTradeMode == MODE_STANDARD)
+   {
+      BuyStopPoints         = Std_BuyStopPoints;
+      SellStopPoints        = Std_SellStopPoints;
+      SL_Points             = Std_SL_Points;
+      Order2GapPoints       = Std_Order2GapPoints;
+      EnableAntiWhipsaw     = Std_EnableAntiWhipsaw;
+      EnableDelayedCancel   = Std_EnableDelayedCancel;
+      DelayedCancelSec      = Std_DelayedCancelSec;
+      BreakevenAfterExecPts = Std_BreakevenAfterExecPts;
+      ConfirmDirectionPts   = Std_ConfirmDirectionPts;
+   }
+   else if(ActiveTradeMode == MODE_BUY_STOP_ONLY || ActiveTradeMode == MODE_SELL_STOP_ONLY)
+   {
+      BuyStopPoints         = Single_StopPoints;
+      SellStopPoints        = Single_StopPoints;
+      SL_Points             = Single_SL_Points;
+      Order2GapPoints       = 0;
+      EnableAntiWhipsaw     = false;
+      EnableDelayedCancel   = false;
+      DelayedCancelSec      = 0;
+      BreakevenAfterExecPts = 0;
+      ConfirmDirectionPts   = 0;
+   }
+   else if(ActiveTradeMode == MODE_MARKET_BUY || ActiveTradeMode == MODE_MARKET_SELL)
+   {
+      BuyStopPoints         = 0;
+      SellStopPoints        = 0;
+      SL_Points             = Market_SL_Points;
+      Order2GapPoints       = 0;
+      EnableAntiWhipsaw     = false;
+      EnableDelayedCancel   = false;
+      DelayedCancelSec      = 0;
+      BreakevenAfterExecPts = 0;
+      ConfirmDirectionPts   = 0;
+   }
+
 
    //--- Optimize for maximum speed during news (Asynchronous execution)
    trade.SetAsyncMode(true);
