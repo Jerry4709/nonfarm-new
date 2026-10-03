@@ -1,4 +1,4 @@
-﻿VERSION=4.0.0
-BUILD=20261004
+﻿VERSION=4.1.0
+BUILD=20261005
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v4.0.0: Fixed UI layout, isolated Input parameters perfectly into 3 distinct sections (Standard, Stop, Market). Auto-install test.
+CHANGELOG=v4.1.0: Auto-Update Installation Test! If you see this, the auto-downloader successfully bypassed the sandbox and placed the update in your Experts folder!
