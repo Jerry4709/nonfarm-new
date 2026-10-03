@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 import urllib.request
 import urllib.parse
 import string
+import random
 import json
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbzerZNdTdMPx-BDMXz1cIX4IgIvrH5RnrwMpfishcUWc8--WDrOYChq2E7g6akqMgN2JA/exec"
@@ -15,24 +16,15 @@ def generate_key():
     mode_text = combo_mode.get()
     mode_val = mode_text.split(" ")[0] if mode_text != "MODE_STANDARD (Pendings)" else ""
     
-    if not (3 <= len(serial) <= 15) or not all(c in string.ascii_uppercase + string.digits for c in serial):
-        messagebox.showerror("Error", "Serial must be 3 to 15 alphanumeric characters (A-Z, 0-9).\nExample: ADMIN, USER1")
+    if not (1 <= len(serial) <= 15) or not all(c in string.ascii_uppercase + string.digits + "-" for c in serial):
+        messagebox.showerror("Error", "Prefix must be 1 to 15 characters (A-Z, 0-9, -).\nExample: ADMIN, PORT1")
         return
         
-    hash_val = 5381
-    for char in serial:
-        hash_val = ((hash_val << 5) + hash_val) + ord(char)
-        hash_val &= 0xFFFFFFFFFFFFFFFF
-        
-    hash_val ^= 0x4E465249
-    
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    check_code = ""
-    for i in range(5):
-        idx = ((hash_val >> (i * 5)) & 0x1F) % len(chars)
-        check_code += chars[idx]
-        
-    license_key = f"NFARM-{serial}-{check_code}"
+    random_code1 = "".join(random.choice(chars) for _ in range(4))
+    random_code2 = "".join(random.choice(chars) for _ in range(4))
+    
+    license_key = f"NFARM-{serial}-{random_code1}-{random_code2}"
     
     # Save to UI
     entry_result.config(state=tk.NORMAL)
@@ -85,7 +77,7 @@ frame = tk.Frame(root)
 frame.pack(fill=tk.BOTH, expand=True)
 
 # Serial
-tk.Label(frame, text="Serial (3-15 chars, e.g. ADMIN):").grid(row=0, column=0, sticky="w", pady=5)
+tk.Label(frame, text="Key Prefix (e.g. PORT1, ADMIN):").grid(row=0, column=0, sticky="w", pady=5)
 entry_serial = tk.Entry(frame, width=25)
 entry_serial.grid(row=0, column=1, pady=5)
 entry_serial.insert(0, "ADMIN")
