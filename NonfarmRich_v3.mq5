@@ -11,8 +11,8 @@
 CTrade trade;
 
 //--- Version info
-#define EA_VERSION       "4.3.0"
-#define EA_BUILD         20261007
+#define EA_VERSION       "4.4.0"
+#define EA_BUILD         20261008
 
 //--- Enums (must be declared before inputs)
 enum ENUM_TIMEZONE_CITY
@@ -2284,7 +2284,7 @@ void CloseAllOrders()
 void DeleteUI()
 {
    string objs[] = {
-      PANEL_NAME, HEADER_LABEL, LABEL_STATUS, LABEL_LICENSE,
+      PANEL_NAME, HEADER_LABEL, LABEL_MODE, LABEL_STATUS, LABEL_LICENSE,
       BTN_OPEN, BTN_CLOSE, BTN_PRICE_TRACK, BTN_TRAILING_STOP,
       BTN_COUNTDOWN, BTN_SPIKE_GUARD, BTN_ANTI_WHIPSAW, BTN_CALC_LOT,
       LABEL_LOT_INFO, LABEL_MARGIN_INFO, LABEL_CALC_LOT,
