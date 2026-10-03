@@ -31,6 +31,17 @@ enum ENUM_SPIKE_ACTION
    SPIKE_BOTH                // Both (Widen + Disable Track)
 };
 
+enum ENUM_TRADE_MODE
+{
+   MODE_STANDARD,        // Standard (Buy/Sell Pendings)
+   MODE_BUY_STOP_ONLY,   // Pending Buy Only
+   MODE_SELL_STOP_ONLY,  // Pending Sell Only
+   MODE_MARKET_BUY,      // Market Buy Before News
+   MODE_MARKET_SELL      // Market Sell Before News
+};
+
+ENUM_TRADE_MODE ActiveTradeMode = MODE_STANDARD;
+
 //+------------------------------------------------------------------+
 //| Input Parameters                                                  |
 //+------------------------------------------------------------------+
@@ -578,6 +589,15 @@ bool ValidateLicenseKey(string key)
    if(StringFind(respText, "VALID") >= 0)
    {
       Print("License Validated Online! Welcome.");
+      
+      // Parse Authorized Trade Mode
+      if(StringFind(respText, "MODE_BUY_STOP") >= 0) ActiveTradeMode = MODE_BUY_STOP_ONLY;
+      else if(StringFind(respText, "MODE_SELL_STOP") >= 0) ActiveTradeMode = MODE_SELL_STOP_ONLY;
+      else if(StringFind(respText, "MODE_MARKET_BUY") >= 0) ActiveTradeMode = MODE_MARKET_BUY;
+      else if(StringFind(respText, "MODE_MARKET_SELL") >= 0) ActiveTradeMode = MODE_MARKET_SELL;
+      else ActiveTradeMode = MODE_STANDARD;
+      
+      Print("Active Trade Mode authorized by key: ", EnumToString(ActiveTradeMode));
       return true;
    }
    else
@@ -788,34 +808,58 @@ void PlaceAllPendingOrders()
    double lot1 = GetEffectiveLot1();
    double lot2 = GetEffectiveLot2();
 
-   //--- BUY STOP orders
-   double buyPrice1 = NormalizeDouble(ask + BuyStopPoints * _Point, _Digits);
-   double buyPrice2 = NormalizeDouble(buyPrice1 + Order2GapPoints * _Point, _Digits);
-   buyPendingPrice1 = buyPrice1;
+   if(ActiveTradeMode == MODE_STANDARD || ActiveTradeMode == MODE_BUY_STOP_ONLY)
+   {
+      double buyPrice1 = NormalizeDouble(ask + BuyStopPoints * _Point, _Digits);
+      double buyPrice2 = NormalizeDouble(buyPrice1 + Order2GapPoints * _Point, _Digits);
+      buyPendingPrice1 = buyPrice1;
+      double buyTp1  = NormalizeDouble(buyPrice1 + TP_Points_Order1 * _Point, _Digits);
+      double buyTp2  = NormalizeDouble(buyPrice2 + TP_Points_Order2 * _Point, _Digits);
+      double buySl1  = GetEffectiveSL(buyPrice1, true);
+      double buySl2  = GetEffectiveSL(buyPrice2, true);
+      buyStopTicket1 = SendTradeOrder(ORDER_TYPE_BUY_STOP, lot1, buyPrice1, buySl1, buyTp1, MagicNumber_1);
+      buyStopTicket2 = SendTradeOrder(ORDER_TYPE_BUY_STOP, lot2, buyPrice2, buySl2, buyTp2, MagicNumber_2);
+   }
 
-   double buyTp1  = NormalizeDouble(buyPrice1 + TP_Points_Order1 * _Point, _Digits);
-   double buyTp2  = NormalizeDouble(buyPrice2 + TP_Points_Order2 * _Point, _Digits);
-   double buySl1  = GetEffectiveSL(buyPrice1, true);
-   double buySl2  = GetEffectiveSL(buyPrice2, true);
-
-   buyStopTicket1 = SendPendingOrder(ORDER_TYPE_BUY_STOP, lot1, buyPrice1, buySl1, buyTp1, MagicNumber_1);
-   buyStopTicket2 = SendPendingOrder(ORDER_TYPE_BUY_STOP, lot2, buyPrice2, buySl2, buyTp2, MagicNumber_2);
-
-   //--- SELL STOP orders
-   double sellPrice1 = NormalizeDouble(bid - SellStopPoints * _Point, _Digits);
-   double sellPrice2 = NormalizeDouble(sellPrice1 - Order2GapPoints * _Point, _Digits);
-   sellPendingPrice1 = sellPrice1;
-
-   double sellTp1  = NormalizeDouble(sellPrice1 - TP_Points_Order1 * _Point, _Digits);
-   double sellTp2  = NormalizeDouble(sellPrice2 - TP_Points_Order2 * _Point, _Digits);
-   double sellSl1  = GetEffectiveSL(sellPrice1, false);
-   double sellSl2  = GetEffectiveSL(sellPrice2, false);
-
-   sellStopTicket1 = SendPendingOrder(ORDER_TYPE_SELL_STOP, lot1, sellPrice1, sellSl1, sellTp1, MagicNumber_1);
-   sellStopTicket2 = SendPendingOrder(ORDER_TYPE_SELL_STOP, lot2, sellPrice2, sellSl2, sellTp2, MagicNumber_2);
+   if(ActiveTradeMode == MODE_STANDARD || ActiveTradeMode == MODE_SELL_STOP_ONLY)
+   {
+      double sellPrice1 = NormalizeDouble(bid - SellStopPoints * _Point, _Digits);
+      double sellPrice2 = NormalizeDouble(sellPrice1 - Order2GapPoints * _Point, _Digits);
+      sellPendingPrice1 = sellPrice1;
+      double sellTp1  = NormalizeDouble(sellPrice1 - TP_Points_Order1 * _Point, _Digits);
+      double sellTp2  = NormalizeDouble(sellPrice2 - TP_Points_Order2 * _Point, _Digits);
+      double sellSl1  = GetEffectiveSL(sellPrice1, false);
+      double sellSl2  = GetEffectiveSL(sellPrice2, false);
+      sellStopTicket1 = SendTradeOrder(ORDER_TYPE_SELL_STOP, lot1, sellPrice1, sellSl1, sellTp1, MagicNumber_1);
+      sellStopTicket2 = SendTradeOrder(ORDER_TYPE_SELL_STOP, lot2, sellPrice2, sellSl2, sellTp2, MagicNumber_2);
+   }
+   
+   if(ActiveTradeMode == MODE_MARKET_BUY)
+   {
+      double buyPrice1 = ask;
+      double buyPrice2 = ask; // Execute both at market
+      double buyTp1  = NormalizeDouble(buyPrice1 + TP_Points_Order1 * _Point, _Digits);
+      double buyTp2  = NormalizeDouble(buyPrice2 + TP_Points_Order2 * _Point, _Digits);
+      double buySl1  = GetEffectiveSL(buyPrice1, true);
+      double buySl2  = GetEffectiveSL(buyPrice2, true);
+      buyStopTicket1 = SendTradeOrder(ORDER_TYPE_BUY, lot1, buyPrice1, buySl1, buyTp1, MagicNumber_1);
+      buyStopTicket2 = SendTradeOrder(ORDER_TYPE_BUY, lot2, buyPrice2, buySl2, buyTp2, MagicNumber_2);
+   }
+   
+   if(ActiveTradeMode == MODE_MARKET_SELL)
+   {
+      double sellPrice1 = bid;
+      double sellPrice2 = bid;
+      double sellTp1  = NormalizeDouble(sellPrice1 - TP_Points_Order1 * _Point, _Digits);
+      double sellTp2  = NormalizeDouble(sellPrice2 - TP_Points_Order2 * _Point, _Digits);
+      double sellSl1  = GetEffectiveSL(sellPrice1, false);
+      double sellSl2  = GetEffectiveSL(sellPrice2, false);
+      sellStopTicket1 = SendTradeOrder(ORDER_TYPE_SELL, lot1, sellPrice1, sellSl1, sellTp1, MagicNumber_1);
+      sellStopTicket2 = SendTradeOrder(ORDER_TYPE_SELL, lot2, sellPrice2, sellSl2, sellTp2, MagicNumber_2);
+   }
 }
 
-ulong SendPendingOrder(ENUM_ORDER_TYPE orderType, double lots, double price,
+ulong SendTradeOrder(ENUM_ORDER_TYPE orderType, double lots, double price,
                        double sl, double tp, ulong magic)
 {
    if(lots <= 0) return 0;
@@ -825,7 +869,7 @@ ulong SendPendingOrder(ENUM_ORDER_TYPE orderType, double lots, double price,
    ZeroMemory(req);
    ZeroMemory(res);
 
-   req.action       = TRADE_ACTION_PENDING;
+   req.action       = (orderType == ORDER_TYPE_BUY || orderType == ORDER_TYPE_SELL) ? TRADE_ACTION_DEAL : TRADE_ACTION_PENDING;
    req.symbol       = Symbol();
    req.volume       = lots;
    req.price        = price;
@@ -862,9 +906,16 @@ ulong SendPendingOrder(ENUM_ORDER_TYPE orderType, double lots, double price,
          //--- Refresh price
          if(orderType == ORDER_TYPE_BUY_STOP)
             req.price = NormalizeDouble(SymbolInfoDouble(Symbol(), SYMBOL_ASK) + BuyStopPoints * _Point, _Digits);
-         else
+         else if(orderType == ORDER_TYPE_SELL_STOP)
             req.price = NormalizeDouble(SymbolInfoDouble(Symbol(), SYMBOL_BID) - SellStopPoints * _Point, _Digits);
-         continue;
+         else if(orderType == ORDER_TYPE_BUY)
+            req.price = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+         else if(orderType == ORDER_TYPE_SELL)
+            req.price = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+         /*
+            req.price = NormalizeDouble(SymbolInfoDouble(Symbol(), SYMBOL_ASK) + BuyStopPoints * _Point, _Digits);
+         else
+            */continue;
       }
       break;
    }
@@ -1909,7 +1960,7 @@ void ValidateTicket(ulong &ticket)
 //+------------------------------------------------------------------+
 void CreateUI()
 {
-   int panelW = 420, panelH = 790;
+   int panelW = 420, panelH = 820;
 
    //--- Panel background
    ObjectCreate(0, PANEL_NAME, OBJ_RECTANGLE_LABEL, 0, 0, 0);
@@ -1927,7 +1978,8 @@ void CreateUI()
    CreateLabel(HEADER_LABEL, 25, 22, "NonfarmRich EA v3.4", C'0,200,255', 16, "Arial Bold");
 
    //--- Status
-   CreateLabel(LABEL_STATUS, 25, 50, "Status: Ready", C'0,255,100', 12, "Arial Bold");
+   CreateLabel(LABEL_MODE, 25, 50, "Mode: ", C'255,215,0', 14, "Arial Bold");
+   CreateLabel(LABEL_STATUS, 25, 75, "Status: Ready", C'0,255,100', 12, "Arial Bold");
 
    //--- License
    CreateLabel(LABEL_LICENSE, 25, 75, "License: Checking...", C'200,200,200', 10, "Arial");
@@ -1935,55 +1987,55 @@ void CreateUI()
    //--- Buttons
    int btnW = 170, btnH = 40, btnFullW = 365;
 
-   CreateButton(BTN_OPEN,          25,  100, btnW, btnH, "Open Orders",        C'34,139,34',  clrWhite);
-   CreateButton(BTN_CLOSE,         205, 100, btnW, btnH, "Close All",          C'220,20,60',  clrWhite);
-   CreateButton(BTN_PRICE_TRACK,   25,  150, btnFullW, 35, "Price Track: ON",   C'34,139,34',  clrWhite);
-   CreateButton(BTN_TRAILING_STOP, 25,  192, btnFullW, 35, "Trailing Stop: ON", C'34,139,34',  clrWhite);
-   CreateButton(BTN_COUNTDOWN,     25,  234, btnFullW, 35, "Countdown: ON",     C'70,130,180', clrWhite);
-   CreateButton(BTN_SPIKE_GUARD,   25,  276, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
-   CreateButton(BTN_ANTI_WHIPSAW,  25,  318, btnFullW, 35, "Anti-Whipsaw: ON",  C'180,50,180', clrWhite);
-      CreateButton(BTN_CALC_LOT,      25,  360, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
+   CreateButton(BTN_OPEN,          25,  125, btnW, btnH, "Open Orders",        C'34,139,34',  clrWhite);
+   CreateButton(BTN_CLOSE,         205, 125, btnW, btnH, "Close All",          C'220,20,60',  clrWhite);
+   CreateButton(BTN_PRICE_TRACK,   25,  175, btnFullW, 35, "Price Track: ON",   C'34,139,34',  clrWhite);
+   CreateButton(BTN_TRAILING_STOP, 25,  217, btnFullW, 35, "Trailing Stop: ON", C'34,139,34',  clrWhite);
+   CreateButton(BTN_COUNTDOWN,     25,  259, btnFullW, 35, "Countdown: ON",     C'70,130,180', clrWhite);
+   CreateButton(BTN_SPIKE_GUARD,   25,  301, btnFullW, 35, "Spike Guard: ON",   C'178,102,0',  clrWhite);
+   CreateButton(BTN_ANTI_WHIPSAW,  25,  343, btnFullW, 35, "Anti-Whipsaw: ON",  C'180,50,180', clrWhite);
+      CreateButton(BTN_CALC_LOT,      25,  385, btnFullW, 35, "Calculate Lot Size", C'100,100,180', clrWhite);
 
    //--- Info labels
-   CreateLabel(LABEL_LOT_INFO,      25, 405, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
-   CreateLabel(LABEL_MARGIN_INFO,   25, 428, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
-   CreateLabel(LABEL_CALC_LOT,      25, 448, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
-   CreateLabel(LABEL_COUNTDOWN,     25, 473, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
-   CreateLabel(LABEL_TRAILING_INFO, 25, 503, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
-   CreateLabel(LABEL_SPIKE_INFO,    25, 528, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
-   CreateLabel(LABEL_AW_INFO,       25, 553, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
+   CreateLabel(LABEL_LOT_INFO,      25, 430, GetLotDisplayText(),       C'255,180,0',   13, "Arial Bold");
+   CreateLabel(LABEL_MARGIN_INFO,   25, 453, "Margin: Loading...",      C'100,180,255', 11, "Arial Bold");
+   CreateLabel(LABEL_CALC_LOT,      25, 473, "Calc Lots: Not calculated", C'150,150,150', 10, "Arial");
+   CreateLabel(LABEL_COUNTDOWN,     25, 498, "News in: --:--:--",       C'255,50,50',   16, "Arial Bold");
+   CreateLabel(LABEL_TRAILING_INFO, 25, 528, "Trailing: Waiting...",    C'0,180,200',   12, "Arial Bold");
+   CreateLabel(LABEL_SPIKE_INFO,    25, 553, "Spike Guard: Standby",    C'100,149,237', 12, "Arial Bold");
+   CreateLabel(LABEL_AW_INFO,       25, 578, "Anti-Whipsaw: Ready",     C'100,200,100', 12, "Arial Bold");
 
    //--- Parameters section
-   CreateLabel(LABEL_PARAMS, 25, 581, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
+   CreateLabel(LABEL_PARAMS, 25, 606, "--- Trading Parameters ---", C'100,150,255', 12, "Arial Bold");
 
-   CreateLabel(LABEL_POINTS, 25, 603,
+   CreateLabel(LABEL_POINTS, 25, 628,
       StringFormat("Stop: B%d/S%d | SL: %d", BuyStopPoints, SellStopPoints, SL_Points),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TP_INFO, 25, 623,
+   CreateLabel(LABEL_TP_INFO, 25, 648,
       StringFormat("TP#1: %d | TP#2: %d | Gap: %d", TP_Points_Order1, TP_Points_Order2, Order2GapPoints),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL1, 25, 643,
+   CreateLabel(LABEL_TRAIL1, 25, 668,
       StringFormat("Trail#1: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_1, TrailingStepPoints_1, TrailingDistancePoints_1),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_TRAIL2, 25, 663,
+   CreateLabel(LABEL_TRAIL2, 25, 688,
       StringFormat("Trail#2: Start %d | Step %d | Dist %d",
                    TrailingStartPoints_2, TrailingStepPoints_2, TrailingDistancePoints_2),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_NEWS_TIME, 25, 683,
+   CreateLabel(LABEL_NEWS_TIME, 25, 708,
       StringFormat("News: %02d:%02d (%s)", NewsHour, NewsMinute, GetTimezoneString()),
       C'255,200,0', 10, "Arial");
 
-   CreateLabel(LABEL_SPIKE_PARAMS, 25, 703,
+   CreateLabel(LABEL_SPIKE_PARAMS, 25, 728,
       StringFormat("Spike: Thr %d | Widen %d | %dm before",
                    SpikeThresholdPoints, SpikeWidenPoints, SpikeGuardMinutesBefore),
       C'140,140,160', 10, "Arial");
 
-   CreateLabel(LABEL_VERSION, 25, 691,
+   CreateLabel(LABEL_VERSION, 25, 755,
       StringFormat("v%s | Build %d | Anti-WS: %s", EA_VERSION, EA_BUILD,
                    EnableAntiWhipsaw ? "ON" : "OFF"),
       C'80,80,100', 9, "Arial");
@@ -2070,6 +2122,35 @@ void UpdateButtonStates()
    ObjectSetString(0, BTN_COUNTDOWN, OBJPROP_TEXT, text);
    ObjectSetInteger(0, BTN_COUNTDOWN, OBJPROP_BGCOLOR, bg);
    ObjectSetInteger(0, BTN_COUNTDOWN, OBJPROP_BORDER_COLOR, bg);
+
+   
+   //--- Mode Specific Labeling
+   string modeText = "Mode: Standard (Straddle)";
+   if(ActiveTradeMode == MODE_BUY_STOP_ONLY) modeText = "Mode: Buy Stop Only";
+   else if(ActiveTradeMode == MODE_SELL_STOP_ONLY) modeText = "Mode: Sell Stop Only";
+   else if(ActiveTradeMode == MODE_MARKET_BUY) modeText = "Mode: Market Buy Only";
+   else if(ActiveTradeMode == MODE_MARKET_SELL) modeText = "Mode: Market Sell Only";
+   
+   ObjectSetString(0, LABEL_MODE, OBJPROP_TEXT, modeText);
+   
+   if(ActiveTradeMode == MODE_MARKET_BUY || ActiveTradeMode == MODE_MARKET_SELL)
+   {
+      ObjectSetInteger(0, BTN_PRICE_TRACK, OBJPROP_STATE, 1);
+      ObjectSetInteger(0, BTN_PRICE_TRACK, OBJPROP_BGCOLOR, C'80,80,80');
+      ObjectSetString(0, BTN_PRICE_TRACK, OBJPROP_TEXT, "Price Track: N/A");
+      
+      ObjectSetInteger(0, BTN_SPIKE_GUARD, OBJPROP_STATE, 1);
+      ObjectSetInteger(0, BTN_SPIKE_GUARD, OBJPROP_BGCOLOR, C'80,80,80');
+      ObjectSetString(0, BTN_SPIKE_GUARD, OBJPROP_TEXT, "Spike Guard: N/A");
+      
+      ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_STATE, 1);
+      ObjectSetInteger(0, BTN_ANTI_WHIPSAW, OBJPROP_BGCOLOR, C'80,80,80');
+      ObjectSetString(0, BTN_ANTI_WHIPSAW, OBJPROP_TEXT, "Anti-Whipsaw: N/A");
+      
+      spikeGuardEnabled = false;
+      priceTrackingEnabled = false;
+      EnableAntiWhipsaw = false;
+   }
 
    //--- Spike Guard
    text = "Spike Guard: " + (spikeGuardEnabled ? "ON" : "OFF");

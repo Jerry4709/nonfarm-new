@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import urllib.request
 import urllib.parse
 import string
@@ -12,6 +12,8 @@ def generate_key():
     user = entry_user.get().strip()
     broker = entry_broker.get().strip()
     acc = entry_acc.get().strip()
+    mode_text = combo_mode.get()
+    mode_val = mode_text.split(" ")[0] if mode_text != "MODE_STANDARD (Pendings)" else ""
     
     if not (3 <= len(serial) <= 15) or not all(c in string.ascii_uppercase + string.digits for c in serial):
         messagebox.showerror("Error", "Serial must be 3 to 15 alphanumeric characters (A-Z, 0-9).\nExample: ADMIN, USER1")
@@ -105,6 +107,12 @@ entry_acc.grid(row=3, column=1, pady=5)
 entry_acc.insert(0, "ANY")
 
 # Generate Button
+
+tk.Label(root, text="Trade Mode:").grid(row=4, column=0, padx=10, pady=10, sticky='e')
+combo_mode = ttk.Combobox(root, values=["MODE_STANDARD (Pendings)", "MODE_BUY_STOP_ONLY", "MODE_SELL_STOP_ONLY", "MODE_MARKET_BUY", "MODE_MARKET_SELL"], state="readonly", width=27)
+combo_mode.current(0)
+combo_mode.grid(row=4, column=1, padx=10, pady=10)
+
 btn_generate = tk.Button(root, text="Generate & Add to Sheet", font=("Arial", 10, "bold"), bg="#4CAF50", fg="white", command=generate_key, pady=5)
 btn_generate.pack(fill=tk.X, pady=(20, 10))
 
