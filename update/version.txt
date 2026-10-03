@@ -1,4 +1,4 @@
-﻿VERSION=4.1.0
-BUILD=20261005
+﻿VERSION=4.2.0
+BUILD=20261006
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v4.1.0: Auto-Update Installation Test! If you see this, the auto-downloader successfully bypassed the sandbox and placed the update in your Experts folder!
+CHANGELOG=v4.2.0: Added separated execution timers for Standard, Single, and Market modes.

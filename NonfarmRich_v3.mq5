@@ -56,6 +56,7 @@ input bool    EnableAutoUpdate   = true;      // Check for updates on startup
 
 //--- โหมด STANDARD
 input group   "========== 🟢 โหมด STANDARD (ดัก 2 ฝั่ง) =========="
+input int     Std_OpenBeforeSec      = 30;       // วาง Pending ก่อนข่าว (วินาที)
 input int     Std_BuyStopPoints      = 3000;     // Buy Stop distance (points)
 input int     Std_SellStopPoints     = 3000;     // Sell Stop distance (points)
 input int     Std_SL_Points          = 0;        // Stop Loss (0 = disabled)
@@ -68,14 +69,17 @@ input int     Std_ConfirmDirectionPts     = 200;         // Confirm when price >
 
 //--- โหมด SINGLE STOP
 input group   "========== 🔵 โหมด STOP ดักฝั่งเดียว (BUY หรือ SELL) =========="
+input int     Single_OpenBeforeSec   = 30;       // วาง Pending ก่อนข่าว (วินาที)
 input int     Single_StopPoints      = 3000;     // Stop distance (points)
 input int     Single_SL_Points       = 0;        // Stop Loss (0 = disabled)
 
 //--- โหมด MARKET
 input group   "========== 🔴 โหมด MARKET (ยิงสดทันที) =========="
+input int     Market_ExecuteBeforeSec= 2;        // ยิงออเดอร์สด ก่อนข่าว (วินาที)
 input int     Market_SL_Points       = 0;        // Stop Loss (0 = disabled)
 
 //--- Global Shadow Variables for Active Settings
+int     OpenBeforeSeconds;
 int     BuyStopPoints;
 int     SellStopPoints;
 int     SL_Points;
@@ -124,7 +128,7 @@ input ENUM_NEWS_MODE NewsMode = NEWS_AUTO_NFP;
 input ENUM_TIMEZONE_CITY Timezone = LONDON;
 input int     NewsHour                      = 9;
 input int     NewsMinute                    = 30;
-input int     OpenBeforeSeconds             = 30;   // Open pending X sec before news
+// (OpenBeforeSeconds is now separated by Mode)
 input int     ClosePriceTrackBeforeSeconds  = 20;   // Disable Price Track X sec before
 
 //--- Spike Guard
@@ -287,6 +291,7 @@ int OnInit()
    //--- Dynamic Input Assignment based on Mode
    if(ActiveTradeMode == MODE_STANDARD)
    {
+      OpenBeforeSeconds     = Std_OpenBeforeSec;
       BuyStopPoints         = Std_BuyStopPoints;
       SellStopPoints        = Std_SellStopPoints;
       SL_Points             = Std_SL_Points;
@@ -299,6 +304,7 @@ int OnInit()
    }
    else if(ActiveTradeMode == MODE_BUY_STOP_ONLY || ActiveTradeMode == MODE_SELL_STOP_ONLY)
    {
+      OpenBeforeSeconds     = Single_OpenBeforeSec;
       BuyStopPoints         = Single_StopPoints;
       SellStopPoints        = Single_StopPoints;
       SL_Points             = Single_SL_Points;
@@ -311,6 +317,7 @@ int OnInit()
    }
    else if(ActiveTradeMode == MODE_MARKET_BUY || ActiveTradeMode == MODE_MARKET_SELL)
    {
+      OpenBeforeSeconds     = Market_ExecuteBeforeSec;
       BuyStopPoints         = 0;
       SellStopPoints        = 0;
       SL_Points             = Market_SL_Points;
