@@ -1,0 +1,6 @@
+VERSION=5.0.0
+BUILD=20261014
+DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
+CHANGELOG=v5.0.0: Spread filter + security update
+SHA256=8a3373b7321190d38c4450a27152aad3a2a91fe8a91664bae41cfd9984421de0
+SIG=6b05fc3218bf2ecd9f9c6db5fef59dff2cb9639c86f46c24c8091e3c0b665e43
