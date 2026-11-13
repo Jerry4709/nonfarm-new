@@ -1,6 +1,6 @@
-VERSION=5.2.0
-BUILD=20261113
+VERSION=5.3.0
+BUILD=20261114
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v5.2.0: Close all orders X min after news, parallel order send, spread/fill/ping/clock logs, halve lot on No money, wait for spread until news time
-SHA256=ddf34c2d1b6e1e4cd4d691933b366ce2808c2d039e5ee45941448860a65d62d9
-SIG=f31084f39cda7115b2cdee15da03d87308442134d4354310c3e387364f773747
+CHANGELOG=v5.3.0: license retry when offline at load, margin-based lot fit on No money, market orders sent blocking (no 3s async wait), Price Track always stops before news, ExpectedMode guard, NO ORDER OPENED alert + retry, SL_EquityPct, trailing/price-track throttling, Request FAILED log, HTTP timeouts
+SHA256=f359bd4dbbc59fbc9144651ea33da13d12321b6b1efde8dc7b67ea5b41b1a5f9
+SIG=9f404553cc72f0b7ba8b07efff6e069473f2ca9643e67f79708de0f06f7b8bf9
