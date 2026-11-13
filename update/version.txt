@@ -1,6 +1,6 @@
-VERSION=5.1.0
-BUILD=20261015
+VERSION=5.2.0
+BUILD=20261113
 DOWNLOAD=https://raw.githubusercontent.com/Jerry4709/nonfarm-new/main/NonfarmRich_v3.ex5
-CHANGELOG=v5.1.0: Spread Guard deletes placed pending orders when spread exceeds max (configurable window before/after news)
-SHA256=8b31035475eb80d5b63072953f25dd4ca59cdd9f07e3d7872121069079e2178b
-SIG=6c52fdd83faf51f98432f2d6e74e8bbb20bc201b4778f8def7cfbe5051d082f5
+CHANGELOG=v5.2.0: Close all orders X min after news, parallel order send, spread/fill/ping/clock logs, halve lot on No money, wait for spread until news time
+SHA256=ddf34c2d1b6e1e4cd4d691933b366ce2808c2d039e5ee45941448860a65d62d9
+SIG=f31084f39cda7115b2cdee15da03d87308442134d4354310c3e387364f773747
